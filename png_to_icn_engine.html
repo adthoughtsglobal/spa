@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNG to ICN Vectorizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f1f5f9; }
+        canvas { image-rendering: pixelated; border: 1px solid #334155; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <header class="flex justify-between items-center border-b border-slate-700 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-400">ICN Vectorizer</h1>
+                <p class="text-slate-400 text-sm">Contour-based multi-shape vectorization</p>
+            </div>
+            <div class="flex gap-2">
+                <input type="file" id="fileInput" accept="image/png" class="hidden">
+                <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg font-medium transition">
+                    Upload PNG
+                </button>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 h-fit">
+                <h2 class="text-lg font-semibold border-b border-slate-700 pb-2">1. Quantization</h2>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Color Count (N)</label>
+                    <input type="range" id="colorCount" min="2" max="16" value="5" class="w-full">
+                    <div class="flex justify-between text-xs text-slate-500"><span>2</span><span id="colorVal">5</span><span>16</span></div>
+                </div>
+                
+                <h2 class="text-lg font-semibold border-b border-slate-700 pb-2 pt-2">2. Vectorization</h2>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Simplification (Epsilon)</label>
+                    <input type="range" id="simplify" min="0" max="50" value="10" class="w-full">
+                    <div class="flex justify-between text-xs text-slate-500"><span>Sharp</span><span id="simplifyVal">1.0</span><span>Smooth</span></div>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Output Mode</label>
+                    <select id="outputMode" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+                        <option value="polygons">Filled Polygons (tri)</option>
+                        <option value="outlines">Outlines (line/cont)</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center gap-2 pt-2">
+                    <input type="checkbox" id="flipX" checked class="w-4 h-4 rounded border-slate-700 bg-slate-900">
+                    <label for="flipX" class="text-sm text-slate-300">Flip X</label>
+                    <input type="checkbox" id="flipY" checked class="w-4 h-4 ml-4 rounded border-slate-700 bg-slate-900">
+                    <label for="flipY" class="text-sm text-slate-300">Flip Y</label>
+                </div>
+
+                <button id="processBtn" class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold transition flex items-center justify-center gap-2">
+                    <span id="btnText">Trace Shapes</span>
+                    <span id="btnLoader" class="loader hidden"></span>
+                </button>
+            </div>
+
+            <div class="lg:col-span-2 space-y-6">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <div class="flex justify-between mb-2 items-center">
+                        <span class="text-xs font-mono text-slate-400">PREVIEW</span>
+                        <div id="status" class="text-xs text-blue-400 italic">Ready</div>
+                    </div>
+                    <div class="flex flex-wrap gap-4 justify-center bg-slate-900 p-4 rounded-lg">
+                        <div class="text-center space-y-2">
+                            <canvas id="sourceCanvas" class="max-w-full"></canvas>
+                            <div class="text-[10px] text-slate-500 uppercase">Original</div>
+                        </div>
+                        <div class="text-center space-y-2">
+                            <canvas id="quantizedCanvas" class="max-w-full"></canvas>
+                            <div class="text-[10px] text-slate-500 uppercase">Quantized Map (NOT RESULT)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <div class="flex justify-between mb-2 items-center">
+                        <span class="text-xs font-mono text-slate-400">ICN COMMANDS (Layer Sorted & Flip Corrected)</span>
+                        <button id="copyBtn" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded transition">Copy Code</button>
+                    </div>
+                    <textarea id="outputCode" readonly class="w-full h-64 bg-slate-950 text-emerald-400 font-mono text-xs p-4 rounded-lg border border-slate-700 custom-scrollbar outline-none" placeholder="ICN code will appear here..."></textarea>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+       class FileSystemHandler {
+  constructor(rootDirectory = '.') {
+    this.rootDirectory = rootDirectory;
+    this.files = {}; // Store file information
+    this.directories = {};
+  }
+
+  /**
+   * Creates a new directory.
+   * @param {string} directoryName - The name of the directory to create.
+   * @returns {boolean} - True if the directory was created successfully, false otherwise.
+   */
+  createDirectory(directoryName) {
+    if (this.files[directoryName] || this.directories[directoryName]) {
+      return false; // Directory already exists
+    }
+
+    this.directories[directoryName] = true;
+    this.files[directoryName] = false; // Directories don't store file info
+    return true;
+  }
+
+  /**
+   * Creates a new file.
+   * @param {string} fileName - The name of the file to create.
+   * @param {string} content - The content of the file.
+   * @returns {boolean} - True if the file was created successfully, false otherwise.
+   */
+  createFile(fileName, content) {
+    if (this.files[fileName]) {
+      return false; // File already exists
+    }
+
+    this.files[fileName] = content;
+    return true;
+  }
+
+  /**
+   * Reads the content of a file.
+   * @param {string} fileName - The name of the file to read.
+   * @returns {string | null} - The content of the file, or null if the file doesn't exist.
+   */
+  readFile(fileName) {
+    if (this.files[fileName]) {
+      return this.files[fileName];
+    }
+    return null;
+  }
+
+  /**
+   * Writes to a file (overwrites existing content).
+   * @param {string} fileName - The name of the file to write to.
+   * @param {string} content - The content to write to the file.
+   * @returns {boolean} - True if the write was successful, false otherwise.
+   */
+  writeFile(fileName, content) {
+    if (!this.files[fileName]) {
+      return false; // File doesn't exist, so can't write
+    }
+    this.files[fileName] = content;
+    return true;
+  }
+
+  /**
+   * Deletes a file or directory.  Handles recursive deletion of directories.
+   * @param {string} itemName - The name of the item to delete.
+   * @returns {boolean} - True if the item was deleted successfully, false otherwise.
+   */
+  deleteItem(itemName) {
+    if (this.files[itemName]) {
+      delete this.files[itemName];
+      return true;
+    }
+
+    if (this.directories[itemName]) {
+      delete this.directories[itemName];
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Lists the contents of a directory.
+   * @param {string} directoryName - The name of the directory to list.
+   * @returns {Array<string>} - An array of file and directory names.
+   */
+  listDirectory(directoryName) {
+    const contents = [];
+    if (this.directories[directoryName]) {
+      for (const name in this.directories) {
+        if (name !== directoryName) { // Don't include the parent directory
+          contents.push(name);
+        }
+      }
+    }
+    return contents;
+  }
+
+}
+
+
+// Example Usage:
+const fs = new FileSystemHandler('myFileSystem');
+
+fs.createDirectory('documents');
+fs.createFile('myFile.txt', 'This is the content of my file.');
+fs.createDirectory('images');
+fs.createFile('image1.jpg', 'Some image data');
+
+console.log(fs.listDirectory('myFileSystem')); // ['documents', 'images']
+console.log(fs.readFile('myFile.txt')); // "This is the content of my file."
+console.log(fs.listDirectory('documents')); // ['myFile.txt']
+    </script>
+</body>
+</html>
