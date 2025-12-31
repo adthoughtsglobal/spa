@@ -49,7 +49,7 @@
       padding: 0.8rem 1.5rem;
       border-radius: 2rem;
       cursor: pointer;
-      font-size: 1rem;
+      font-size: 0.9rem;
       transition: transform 0.1s, opacity 0.2s;
     }
 
@@ -63,7 +63,7 @@
       flex: 1;
       overflow: hidden;
       gap: 1px;
-      background: #222; /* Divider line */
+      background: #222; 
     }
 
     .channel-sec {
@@ -85,7 +85,6 @@
       justify-content: space-between;
     }
 
-    /* --- Controls & Inputs --- */
     .control-box {
       background: var(--panel);
       padding: 1rem;
@@ -118,19 +117,32 @@
       margin-bottom: 1rem;
     }
 
+    .slider-label-group {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.2rem;
+        margin-top: 0.8rem;
+    }
+
     label {
-      font-size: 0.8rem;
-      display: block;
-      margin-bottom: 0.5rem;
+      font-size: 0.7rem;
       color: #888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .time-display {
+        font-family: monospace;
+        font-size: 0.75rem;
+        color: var(--accent);
     }
 
     input[type="range"] {
       width: 100%;
       accent-color: var(--accent);
+      cursor: pointer;
     }
 
-    /* --- Visualizer & Playlist --- */
     canvas {
       width: 100%;
       height: 80px;
@@ -203,7 +215,6 @@
 
   </style>
 </head>
-
 <body>
 
   <header>
@@ -216,12 +227,9 @@
         <button class="master-btn secondary" id="pauseBoth">⏸ PAUSE BOTH</button>
         
         <div class="settings-row">
+            <button class="master-btn secondary" id="toggleSync">Auto Sync: ON</button>
             <button class="master-btn secondary" id="toggleOrbit">360 Mode: OFF</button>
             <label>Speed <input id="speed" type="range" min="0" max="5" value="1" style="width: 80px;"></label>
-            <select id="playbackMode">
-                <option value="cut">Shortest</option>
-                <option value="long">Longest</option>
-            </select>
         </div>
     </div>
   </header>
@@ -237,16 +245,22 @@
           <button id="pauseLeft">⏸</button>
           <button id="nextLeft">⏭</button>
         </div>
-        <label>VOLUME</label>
+        
+        <div class="slider-label-group">
+            <label>SEEK</label>
+            <span id="leftTime" class="time-display">0:00 / 0:00</span>
+        </div>
+        <input id="leftSeek" type="range" min="0" max="100" value="0">
+
+        <div class="slider-label-group">
+            <label>VOLUME</label>
+        </div>
         <input id="leftVol" type="range" min="0" max="1" step="0.01" value="0.8">
       </div>
-
       <canvas id="leftWave"></canvas>
-      
       <div class="marquee-container">
         <div id="leftNow" class="marquee">No track loaded...</div>
       </div>
-
       <div id="leftList" class="tracklist"></div>
     </section>
 
@@ -260,23 +274,30 @@
           <button id="pauseRight">⏸</button>
           <button id="nextRight">⏭</button>
         </div>
-        <label>VOLUME</label>
+
+        <div class="slider-label-group">
+            <label>SEEK</label>
+            <span id="rightTime" class="time-display">0:00 / 0:00</span>
+        </div>
+        <input id="rightSeek" type="range" min="0" max="100" value="0">
+
+        <div class="slider-label-group">
+            <label>VOLUME</label>
+        </div>
         <input id="rightVol" type="range" min="0" max="1" step="0.01" value="0.8">
       </div>
-
       <canvas id="rightWave"></canvas>
-
       <div class="marquee-container">
         <div id="rightNow" class="marquee">No track loaded...</div>
       </div>
-
       <div id="rightList" class="tracklist"></div>
     </section>
   </main>
 
   <script>
-    let ac, leftElem, rightElem, leftSrc, rightSrc, leftGain, rightGain, merger, leftPanner, rightPanner, t = 0, orbit = false, rotate360 = false;
+    let ac, leftElem, rightElem, leftSrc, rightSrc, leftGain, rightGain, merger, leftPanner, rightPanner, t = 0, rotate360 = false, autoSync = true;
     let leftTracks = [], rightTracks = [], leftIndex = 0, rightIndex = 0, leftAnalyzer, rightAnalyzer, leftCtx, rightCtx, leftData, rightData;
+    let leftBPM = 0, rightBPM = 0, leftBeats = [], rightBeats = [];
 
     function ensureCtx() { 
         if (!ac) {
@@ -286,14 +307,34 @@
         if (ac.state === 'suspended') ac.resume();
     }
 
+    function formatTime(secs) {
+        const mins = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        return `${mins}:${s.toString().padStart(2, '0')}`;
+    }
+
     function makeElements() {
       leftElem = new Audio(); rightElem = new Audio();
+      
+      // Handle Progress Bar / Seeking
+      [ {e: leftElem, s: leftSeek, t: leftTime}, {e: rightElem, s: rightSeek, t: rightTime} ].forEach(obj => {
+          obj.e.ontimeupdate = () => {
+              if (!isNaN(obj.e.duration)) {
+                  obj.s.value = (obj.e.currentTime / obj.e.duration) * 100;
+                  obj.t.textContent = `${formatTime(obj.e.currentTime)} / ${formatTime(obj.e.duration)}`;
+              }
+          };
+          obj.s.oninput = () => {
+              const time = (obj.s.value / 100) * obj.e.duration;
+              obj.e.currentTime = time;
+          };
+      });
+
       leftSrc = ac.createMediaElementSource(leftElem);
       rightSrc = ac.createMediaElementSource(rightElem);
       leftGain = ac.createGain(); rightGain = ac.createGain();
       leftAnalyzer = ac.createAnalyser(); rightAnalyzer = ac.createAnalyser();
-      leftAnalyzer.fftSize = 256;
-      rightAnalyzer.fftSize = 256;
+      leftAnalyzer.fftSize = 256; rightAnalyzer.fftSize = 256;
       merger = ac.createChannelMerger(2);
       leftCtx = leftWave.getContext("2d"); rightCtx = rightWave.getContext("2d");
       leftData = new Uint8Array(leftAnalyzer.frequencyBinCount);
@@ -324,16 +365,57 @@
         } catch(e) {} 
     }
 
-    function playTrack(side) {
+    async function detectBPM(audioBuffer) {
+        const data = audioBuffer.getChannelData(0);
+        const sampleRate = audioBuffer.sampleRate;
+        const windowSize = Math.floor(sampleRate * 0.05); 
+        const hopSize = Math.floor(windowSize / 2);
+        const energies = [];
+        for (let i = 0; i < data.length - windowSize; i += hopSize) {
+            let energy = 0;
+            for (let j = 0; j < windowSize; j++) { energy += data[i + j] * data[i + j]; }
+            energies.push(energy);
+        }
+        const threshold = energies.reduce((a, b) => a + b) / energies.length * 1.5;
+        const beats = [];
+        for (let i = 1; i < energies.length - 1; i++) {
+            if (energies[i] > threshold && energies[i] > energies[i-1] && energies[i] > energies[i+1]) {
+                beats.push((i * hopSize) / sampleRate);
+            }
+        }
+        if (beats.length < 2) return { bpm: 120, beats: [] };
+        const intervals = [];
+        for (let i = 1; i < Math.min(beats.length, 50); i++) { intervals.push(beats[i] - beats[i-1]); }
+        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+        const bpm = Math.round(60 / avgInterval);
+        return { bpm: bpm > 60 && bpm < 200 ? bpm : 120, beats };
+    }
+
+    async function analyzeTrack(side) {
+        const tracks = side === "left" ? leftTracks : rightTracks;
+        const index = side === "left" ? leftIndex : rightIndex;
+        if (!tracks.length) return;
+        updateNowPlaying(side, `Analyzing ${tracks[index].name}...`);
+        const arrayBuffer = await tracks[index].arrayBuffer();
+        const audioBuffer = await ac.decodeAudioData(arrayBuffer);
+        const result = await detectBPM(audioBuffer);
+        if (side === "left") { leftBPM = result.bpm; leftBeats = result.beats; } 
+        else { rightBPM = result.bpm; rightBeats = result.beats; }
+        updateNowPlaying(side, `${tracks[index].name} [${result.bpm} BPM]`);
+        return result;
+    }
+
+    function playTrack(side, startTime = 0) {
         const tracks = side === "left" ? leftTracks : rightTracks;
         const index = side === "left" ? leftIndex : rightIndex;
         const elem = side === "left" ? leftElem : rightElem;
-        
         if (!tracks.length) return;
-        
         elem.src = URL.createObjectURL(tracks[index]);
+        elem.currentTime = startTime;
         elem.play();
-        updateNowPlaying(side, tracks[index].name);
+        const bpm = side === "left" ? leftBPM : rightBPM;
+        const name = tracks[index].name;
+        updateNowPlaying(side, bpm > 0 ? `${name} [${bpm} BPM]` : name);
     }
 
     function updateNowPlaying(side, name) {
@@ -342,34 +424,23 @@
     }
 
     function nextTrack(side) {
-      if (side === "left" && leftTracks.length) { leftIndex = (leftIndex + 1) % leftTracks.length; playTrack("left"); }
-      if (side === "right" && rightTracks.length) { rightIndex = (rightIndex + 1) % rightTracks.length; playTrack("right"); }
+      if (side === "left" && leftTracks.length) { leftIndex = (leftIndex + 1) % leftTracks.length; leftBPM = 0; playTrack("left"); }
+      if (side === "right" && rightTracks.length) { rightIndex = (rightIndex + 1) % rightTracks.length; rightBPM = 0; playTrack("right"); }
     }
 
     function prevTrack(side) {
-      if (side === "left" && leftTracks.length) { leftIndex = (leftIndex - 1 + leftTracks.length) % leftTracks.length; playTrack("left"); }
-      if (side === "right" && rightTracks.length) { rightIndex = (rightIndex - 1 + rightTracks.length) % rightTracks.length; playTrack("right"); }
+      if (side === "left" && leftTracks.length) { leftIndex = (leftIndex - 1 + leftTracks.length) % leftTracks.length; leftBPM = 0; playTrack("left"); }
+      if (side === "right" && rightTracks.length) { rightIndex = (rightIndex - 1 + rightTracks.length) % rightTracks.length; rightBPM = 0; playTrack("right"); }
     }
 
     function visualize() {
       if (!leftAnalyzer || !rightAnalyzer) return;
       leftAnalyzer.getByteFrequencyData(leftData);
       rightAnalyzer.getByteFrequencyData(rightData);
-      
-      leftCtx.clearRect(0, 0, 300, 80); 
-      rightCtx.clearRect(0, 0, 300, 80);
-      
-      leftCtx.fillStyle = '#00ff88';
-      rightCtx.fillStyle = '#00ff88';
-
-      for (let i = 0; i < leftData.length; i++) { 
-        let h = (leftData[i] / 255) * 80; 
-        leftCtx.fillRect(i * 3, 80 - h, 2, h); 
-      }
-      for (let i = 0; i < rightData.length; i++) { 
-        let h = (rightData[i] / 255) * 80; 
-        rightCtx.fillRect(i * 3, 80 - h, 2, h); 
-      }
+      leftCtx.clearRect(0, 0, 300, 80); rightCtx.clearRect(0, 0, 300, 80);
+      leftCtx.fillStyle = '#00ff88'; rightCtx.fillStyle = '#00ff88';
+      for (let i = 0; i < leftData.length; i++) { let h = (leftData[i] / 255) * 80; leftCtx.fillRect(i * 3, 80 - h, 2, h); }
+      for (let i = 0; i < rightData.length; i++) { let h = (rightData[i] / 255) * 80; rightCtx.fillRect(i * 3, 80 - h, 2, h); }
       requestAnimationFrame(visualize);
     }
 
@@ -394,11 +465,7 @@
         div.className = "trackitem";
         const name = document.createElement("span");
         name.textContent = `${i+1}. ${f.name}`;
-        name.onclick = () => { 
-            ensureCtx();
-            if (side === "left") { leftIndex = i; playTrack("left"); } 
-            else { rightIndex = i; playTrack("right"); } 
-        };
+        name.onclick = () => { ensureCtx(); if (side === "left") { leftIndex = i; playTrack("left"); } else { rightIndex = i; playTrack("right"); } };
         const remove = document.createElement("button");
         remove.textContent = "✕";
         remove.onclick = e => { e.stopPropagation(); tracks.splice(i, 1); renderList(side); };
@@ -407,41 +474,52 @@
       });
     }
 
-    // Event Listeners
     leftFiles.onchange = () => { leftTracks = Array.from(leftFiles.files); renderList("left"); };
     rightFiles.onchange = () => { rightTracks = Array.from(rightFiles.files); renderList("right"); };
 
-    playLeft.onclick = () => { ensureCtx(); playTrack("left"); leftElem.onended = () => nextTrack("left"); visualize(); };
-    playRight.onclick = () => { ensureCtx(); playTrack("right"); rightElem.onended = () => nextTrack("right"); visualize(); };
+    playLeft.onclick = async () => { ensureCtx(); if (leftBPM === 0 && leftTracks.length) await analyzeTrack("left"); playTrack("left"); leftElem.onended = () => nextTrack("left"); visualize(); };
+    playRight.onclick = async () => { ensureCtx(); if (rightBPM === 0 && rightTracks.length) await analyzeTrack("right"); playTrack("right"); rightElem.onended = () => nextTrack("right"); visualize(); };
     pauseLeft.onclick = () => leftElem.pause();
     pauseRight.onclick = () => rightElem.pause();
 
-    // Play Both Logic
-    playBoth.onclick = () => {
+    toggleSync.onclick = () => {
+        autoSync = !autoSync;
+        toggleSync.textContent = `Auto Sync: ${autoSync ? 'ON' : 'OFF'}`;
+        toggleSync.style.background = autoSync ? '#333' : 'var(--danger)';
+    }
+
+    playBoth.onclick = async () => {
         ensureCtx();
-        if (leftTracks.length) { playTrack("left"); leftElem.onended = () => nextTrack("left"); }
-        if (rightTracks.length) { playTrack("right"); rightElem.onended = () => nextTrack("right"); }
+        if (!leftTracks.length || !rightTracks.length) return;
+        if (!autoSync) {
+            playTrack("left"); playTrack("right");
+            leftElem.onended = () => nextTrack("left"); rightElem.onended = () => nextTrack("right");
+            visualize(); return;
+        }
+        if (leftBPM === 0 || leftBeats.length === 0) await analyzeTrack("left");
+        if (rightBPM === 0 || rightBeats.length === 0) await analyzeTrack("right");
+        let leftDelay = 0, rightDelay = 0;
+        if (leftBeats.length > 0 && rightBeats.length > 0) {
+            const lb = leftBeats[0], rb = rightBeats[0];
+            if (lb < rb) rightDelay = lb; else leftDelay = rb;
+        }
+        setTimeout(() => { playTrack("left", leftDelay); leftElem.onended = () => nextTrack("left"); }, 0);
+        setTimeout(() => { playTrack("right", rightDelay); rightElem.onended = () => nextTrack("right"); }, Math.abs(leftDelay - rightDelay) * 1000);
         visualize();
     };
 
-    pauseBoth.onclick = () => {
-        if(leftElem) leftElem.pause();
-        if(rightElem) rightElem.pause();
-    };
+    pauseBoth.onclick = () => { if(leftElem) leftElem.pause(); if(rightElem) rightElem.pause(); };
 
     toggleOrbit.onclick = () => {
-      ensureCtx();
-      rotate360 = !rotate360;
+      ensureCtx(); rotate360 = !rotate360;
       toggleOrbit.textContent = `360 Mode: ${rotate360 ? 'ON' : 'OFF'}`;
       toggleOrbit.style.background = rotate360 ? 'var(--accent)' : '#333';
       toggleOrbit.style.color = rotate360 ? 'black' : 'white';
-      if (rotate360) { connectOrbit(); animate(); }
-      else { connectStereo(); }
+      if (rotate360) { connectOrbit(); animate(); } else { connectStereo(); }
     }
 
     leftVol.oninput = () => { if (leftGain) leftGain.gain.value = parseFloat(leftVol.value) }
     rightVol.oninput = () => { if (rightGain) rightGain.gain.value = parseFloat(rightVol.value) }
-
     prevLeft.onclick = () => prevTrack("left");
     nextLeft.onclick = () => nextTrack("left");
     prevRight.onclick = () => prevTrack("right");
