@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Title Bar Scroller</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #000000;
+            margin: 0;
+        }
+
+        .container {
+            background: rgb(0, 0, 0);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        #startBtn {
+            background-color: #007bff;
+            color: white;
+        }
+
+        #startBtn:hover {
+            background-color: #0056b3;
+        }
+
+        #stopBtn {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        #stopBtn:hover {
+            background-color: #a71d2a;
+        }
+
+        .status {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Title Bar Scroller</h1>
+        <p>Press <strong>Spacebar</strong> to scroll the title!</p>
+
+        <input type="text" id="userText" placeholder="Enter text to scroll..."
+            value="This is app i made so that i can place the window near my laptop webcam and read the text by pressing space repeatedly. The key insight is that when you are reading this way from the title while maintaining the window almost near the webcam, you get a pretty solid eye contact. Additionally this reading tool shows text you have to read in uppercase while text you completed shows up in lowercase. The lowercase text is only shown twenty five percentage of the scrolling window space. The scrolling window is the section of the browser title bar this website uses as the scrolling text display. And at last, i have made it so that the space key scrolls are animated for the best experience. How cool is this!">
+
+        <div class="button-group">
+            <button id="startBtn" onclick="enableScrolling()">Enable</button>
+            <button id="stopBtn" onclick="disableScrolling()">Disable</button>
+        </div>
+
+        <div class="status" id="statusMsg">Status: Disabled</div>
+    </div>
+
+    <script>
+        let originalTitle = document.title;
+        let currentText = "";
+        let scrollingEnabled = false;
+        const windowSize = 30;
+
+        function enableScrolling() {
+            const input = document.getElementById('userText').value;
+            const spacing = " ... ";
+            currentText = spacing + input + spacing;
+            scrollingEnabled = true;
+            document.getElementById('statusMsg').innerText = "Status: Enabled";
+        }
+
+        function disableScrolling() {
+            scrollingEnabled = false;
+            document.title = "Title Bar Scroller";
+            document.getElementById('statusMsg').innerText = "Status: Disabled";
+        }
+
+        window.addEventListener('keydown', function (e) {
+            if (scrollingEnabled && e.code === "Space") {
+                e.preventDefault();
+                let rotations = 5;
+                let i = 0;
+
+                function formatText(text) {
+                    let mid = Math.floor(text.length / 4);
+                    return text.slice(0, mid).toLowerCase() + text.slice(mid).toUpperCase();
+                }
+
+                function rotate() {
+                    currentText = currentText.substring(1) + currentText[0];
+                    let visibleText = currentText.slice(0, windowSize);
+                    document.title = formatText(visibleText);
+                    i++;
+                    if (i < rotations) setTimeout(rotate, 200);
+                }
+
+                rotate();
+            }
+        });
+
+
+
+    </script>
+
+</body>
+
+</html>
