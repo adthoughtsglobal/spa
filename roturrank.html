@@ -51,7 +51,7 @@ function estimate(balance, members, mean, variance){
   const sigma = Math.sqrt(sigma2)
   const mu = Math.log(mean) - sigma2 / 2
   const percentile = balance <= 0 ? 0 : normalCDF((Math.log(balance)-mu)/sigma)
-  let rank = Math.ceil((1 - percentile) * members)
+  let rank = 1 + (1 - percentile) * (members - 1) - balance * 0.001
   if(rank < 1) rank = 1
   if(rank > members) rank = members
   return {
