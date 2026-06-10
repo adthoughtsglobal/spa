@@ -1,119 +1,279 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Rotur Rank Estimator</title>
-<style>
-body{font-family:system-ui,sans-serif;max-width:700px;margin:40px auto;padding:20px;background:#111;color:#eee}
-input,button{padding:10px;font-size:16px;border:0;border-radius:8px}
-input{width:260px;background:#222;color:#fff}
-button{background:#4b7cff;color:#fff;cursor:pointer}
-button:disabled{opacity:.6;cursor:wait}
-.row{display:flex;gap:10px;flex-wrap:wrap}
-.card{margin-top:20px;padding:18px;background:#1b1b1b;border-radius:12px}
-.big{font-size:28px;font-weight:700}
-.muted{color:#aaa}
-.err{color:#ff6b6b}
-.bar{height:12px;background:#2a2a2a;border-radius:999px;overflow:hidden;margin-top:10px}
-.fill{height:100%;background:#4b7cff;width:0%}
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Rotur Rank Estimator</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #111;
+            color: #eee
+        }
+
+        input,
+        button {
+            padding: 10px;
+            font-size: 16px;
+            border: 0;
+            border-radius: 8px
+        }
+
+        input {
+            width: 260px;
+            background: #222;
+            color: #fff
+        }
+
+        button {
+            background: #4b7cff;
+            color: #fff;
+            cursor: pointer
+        }
+        canvas{
+  margin-top:10px;
+  background:#151515;
+  border-radius:10px;
+  max-width:100%;
+}
+
+        button:disabled {
+            opacity: .6;
+            cursor: wait
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap
+        }
+
+        .card {
+            margin-top: 20px;
+            padding: 18px;
+            background: #1b1b1b;
+            border-radius: 12px
+        }
+
+        .big {
+            font-size: 28px;
+            font-weight: 700
+        }
+
+        .muted {
+            color: #aaa
+        }
+
+        .err {
+            color: #ff6b6b
+        }
+
+        .bar {
+            height: 12px;
+            background: #2a2a2a;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-top: 10px
+        }
+
+        .fill {
+            height: 100%;
+            background: #4b7cff;
+            width: 0%
+        }
+    </style>
 </head>
+
 <body>
-<h1>Rotur Rank Estimator</h1>
-<div class="row">
-<input id="name" placeholder="Username" autocomplete="off">
-<button id="go">Check Rank</button>
+    <h1>Rotur Rank Estimator</h1>
+    <div class="row">
+        <input id="name" placeholder="Username" autocomplete="off">
+        <button id="go">Check Rank</button>
+    </div>
+    <div id="out"></div>
+
+    <script>
+        const out = document.getElementById("out")
+        const btn = document.getElementById("go")
+        const input = document.getElementById("name")
+
+        function erf(x) {
+            const sign = x < 0 ? -1 : 1
+            x = Math.abs(x)
+            const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911
+            const t = 1 / (1 + p * x)
+            const y = 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x))
+            return sign * y
+        }
+
+        function normalCDF(z) {
+            return 0.5 * (1 + erf(z / Math.SQRT2))
+        }
+
+        function estimate(balance, members, mean, variance) {
+            if (balance < 0) balance = 0
+            const sigma2 = Math.log(1 + variance / (mean * mean))
+            const sigma = Math.sqrt(sigma2)
+            const mu = Math.log(mean) - sigma2 / 2
+            const percentile = balance <= 0 ? 0 : normalCDF((Math.log(balance) - mu) / sigma)
+            let rank = 1 + (1 - percentile) * (members - 1) - balance * 0.001
+            if (rank < 1) rank = 1
+            if (rank > members) rank = members
+            return {
+                rank,
+                percentile: percentile * 100,
+                top: rank / members * 100
+            }
+        }
+
+        async function getJSON(url) {
+            const r = await fetch(url)
+            if (!r.ok) throw new Error("Request failed")
+            return await r.json()
+        }
+
+        async function run() {
+            const name = input.value.trim()
+            if (!name) return
+            btn.disabled = true
+            out.innerHTML = `<div class="card">Loading...</div>`
+            try {
+                const [eco, users, profile] = await Promise.all([
+                    getJSON("https://api.rotur.dev/stats/economy"),
+                    getJSON("https://api.rotur.dev/stats/users"),
+                    getJSON("https://api.rotur.dev/profile?name=" + encodeURIComponent(name) + "&include_posts=0")
+                ])
+
+                if (profile.currency == null) throw new Error("User not found")
+
+                const balance = Number(profile.currency)
+                const result = estimate(
+                    balance,
+                    Number(users.active_users),
+                    Number(eco.average),
+                    Number(eco.variance)
+                )
+
+                out.innerHTML = `
+<div class="card">
+  <div class="muted">Username</div>
+  <div class="big">${name}</div>
+  <br>
+  <div class="muted">Balance</div>
+  <div class="big">${balance.toFixed(2)}</div>
+  <br>
+  <div class="muted">Estimated Rank</div>
+  <div class="big">#${Math.round(result.rank)} / ${users.active_users}</div>
+  <div class="muted">Better than ${result.percentile.toFixed(2)}% of users</div>
+  <div class="muted">Top ${result.top.toFixed(2)}%</div>
+  <div class="bar"><div class="fill" style="width:${result.percentile.toFixed(2)}%"></div></div>
+
+  <br>
+  <div class="muted">Percentile</div>
+  <canvas id="donut" width="140" height="140"></canvas>
+
+  <br>
+  <div class="muted">Balance Trend (simulated)</div>
+  <canvas id="line" width="620" height="160"></canvas>
+
+  <br>
+  <div class="muted">Economy Snapshot</div>
+  <canvas id="bars" width="620" height="160"></canvas>
 </div>
-<div id="out"></div>
-
-<script>
-const out = document.getElementById("out")
-const btn = document.getElementById("go")
-const input = document.getElementById("name")
-
-function erf(x){
-  const sign = x < 0 ? -1 : 1
-  x = Math.abs(x)
-  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911
-  const t = 1/(1+p*x)
-  const y = 1-(((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t*Math.exp(-x*x))
-  return sign*y
-}
-
-function normalCDF(z){
-  return 0.5*(1+erf(z/Math.SQRT2))
-}
-
-function estimate(balance, members, mean, variance){
-  if(balance < 0) balance = 0
-  const sigma2 = Math.log(1 + variance / (mean * mean))
-  const sigma = Math.sqrt(sigma2)
-  const mu = Math.log(mean) - sigma2 / 2
-  const percentile = balance <= 0 ? 0 : normalCDF((Math.log(balance)-mu)/sigma)
-  let rank = 1 + (1 - percentile) * (members - 1) - balance * 0.001
-  if(rank < 1) rank = 1
-  if(rank > members) rank = members
-  return {
-    rank,
-    percentile: percentile * 100,
-    top: rank / members * 100
-  }
-}
-
-async function getJSON(url){
-  const r = await fetch(url)
-  if(!r.ok) throw new Error("Request failed")
-  return await r.json()
-}
-
-async function run(){
-  const name = input.value.trim()
-  if(!name) return
-  btn.disabled = true
-  out.innerHTML = `<div class="card">Loading...</div>`
-  try{
-    const [eco, users, profile] = await Promise.all([
-      getJSON("https://api.rotur.dev/stats/economy"),
-      getJSON("https://api.rotur.dev/stats/users"),
-      getJSON("https://api.rotur.dev/profile?name=" + encodeURIComponent(name) + "&include_posts=0")
-    ])
-
-    if(profile.currency == null) throw new Error("User not found")
-
-    const balance = Number(profile.currency)
-    const result = estimate(
-      balance,
-      Number(users.active_users),
-      Number(eco.average),
-      Number(eco.variance)
-    )
-
-    out.innerHTML = `
-      <div class="card">
-        <div class="muted">Username</div>
-        <div class="big">${name}</div>
-        <br>
-        <div class="muted">Balance</div>
-        <div class="big">${balance.toFixed(2)}</div>
-        <br>
-        <div class="muted">Estimated Rank</div>
-        <div class="big">#${result.rank} / ${users.active_users}</div>
-        <div class="muted">Better than ${result.percentile.toFixed(2)}% of users</div>
-        <div class="muted">Top ${result.top.toFixed(2)}%</div>
-        <div class="bar"><div class="fill" style="width:${result.percentile.toFixed(2)}%"></div></div>
-      </div>
     `
-  }catch(e){
-    out.innerHTML = `<div class="card err">${e.message}</div>`
-  }
-  btn.disabled = false
-}
+     const trend = [
+            balance * 0.62,
+            balance * 0.71,
+            balance * 0.8,
+            balance * 0.92,
+            balance
+        ]
 
-btn.onclick = run
-input.addEventListener("keydown", e => {
-  if(e.key === "Enter") run()
-})
-</script>
+        lineChart("line", trend)
+        barChart("bars", [
+            Number(eco.average),
+            Math.sqrt(Number(eco.variance)),
+            balance
+        ])
+        donutChart("donut", result.percentile)
+            } catch (e) {
+                out.innerHTML = `<div class="card err">${e.message}</div>`
+            }
+            btn.disabled = false
+        }
+       
+
+        btn.onclick = run
+        input.addEventListener("keydown", e => {
+            if (e.key === "Enter") run()
+        })
+    </script>
+    <script>
+        function lineChart(id, values) {
+            const c = document.getElementById(id)
+            if (!c) return
+            const x = c.getContext("2d")
+            const w = c.width
+            const h = c.height
+            x.clearRect(0, 0, w, h)
+            const min = Math.min(...values)
+            const max = Math.max(...values)
+            const range = max - min || 1
+            x.strokeStyle = "#4b7cff"
+            x.lineWidth = 2
+            x.beginPath()
+            values.forEach((v, i) => {
+                const px = i * (w / (values.length - 1))
+                const py = h - ((v - min) / range) * h
+                if (i === 0) x.moveTo(px, py)
+                else x.lineTo(px, py)
+            })
+            x.stroke()
+        }
+
+        function barChart(id, values) {
+            const c = document.getElementById(id)
+            if (!c) return
+            const x = c.getContext("2d")
+            const w = c.width
+            const h = c.height
+            x.clearRect(0, 0, w, h)
+            const max = Math.max(...values) || 1
+            const bw = w / values.length
+            x.fillStyle = "#4b7cff"
+            values.forEach((v, i) => {
+                const bh = (v / max) * h
+                x.fillRect(i * bw + 4, h - bh, bw - 8, bh)
+            })
+        }
+
+        function donutChart(id, percent) {
+            const c = document.getElementById(id)
+            if (!c) return
+            const x = c.getContext("2d")
+            const r = 45
+            const cx = c.width / 2
+            const cy = c.height / 2
+            x.clearRect(0, 0, c.width, c.height)
+            x.lineWidth = 12
+            x.strokeStyle = "#2a2a2a"
+            x.beginPath()
+            x.arc(cx, cy, r, 0, Math.PI * 2)
+            x.stroke()
+            x.strokeStyle = "#4b7cff"
+            x.beginPath()
+            x.arc(cx, cy, r, -Math.PI / 2, (Math.PI * 2) * (percent / 100) - Math.PI / 2)
+            x.stroke()
+            x.fillStyle = "#fff"
+            x.font = "16px sans-serif"
+            x.textAlign = "center"
+            x.fillText(percent.toFixed(1) + "%", cx, cy + 5)
+        }
+    </script>
 </body>
+
 </html>
