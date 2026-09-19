@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rotur Token</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0f1115;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+    }
+
+    .container {
+      width: min(700px, 90%);
+    }
+
+    h1 {
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      padding: 14px;
+      resize: vertical;
+      border: 1px solid #30343d;
+      border-radius: 8px;
+      background: #181b21;
+      color: #fff;
+      font: 14px monospace;
+      outline: none;
+    }
+
+    button {
+      margin-top: 12px;
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 8px;
+      background: #fff;
+      color: #111;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #ddd;
+    }
+
+    .status {
+      margin-top: 12px;
+      color: #999;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Rotur Token</h1>
+
+    <textarea id="token" readonly placeholder="Your token will appear here..."></textarea>
+
+    <button id="copy">Copy Token</button>
+
+    <div class="status" id="status"></div>
+  </main>
+
+  <script>
+    const returnTo = "https://adthoughtsglobal.github.io/spa/getToken.html";
+    const tokenElement = document.getElementById("token");
+    const copyButton = document.getElementById("copy");
+    const statusElement = document.getElementById("status");
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    if (token) {
+      tokenElement.value = token;
+      statusElement.textContent = "Token received.";
+    } else {
+      const authUrl = `https://rotur.dev/auth?return_to=${encodeURIComponent(returnTo)}`;
+      window.location.replace(authUrl);
+    }
+
+    copyButton.addEventListener("click", async () => {
+      if (!tokenElement.value) {
+        statusElement.textContent = "No token available.";
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(tokenElement.value);
+        statusElement.textContent = "Token copied.";
+      } catch {
+        tokenElement.select();
+        document.execCommand("copy");
+        statusElement.textContent = "Token copied.";
+      }
+    });
+  </script>
+</body>
+</html>
