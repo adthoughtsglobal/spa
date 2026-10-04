@@ -1,223 +1,678 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PNG to ICN Vectorizer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background-color: #0f172a; color: #f1f5f9; }
-        canvas { image-rendering: pixelated; border: 1px solid #334155; }
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3b82f6;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PNG to ICN Vectorizer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:#0f172a;color:#f1f5f9}
+canvas{image-rendering:auto;border:1px solid #334155;max-width:100%;height:auto}
+.loader{border:3px solid #f3f3f3;border-top:3px solid #3b82f6;border-radius:50%;width:20px;height:20px;animation:spin 1s linear infinite;display:inline-block;vertical-align:middle}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.drop-active{outline:2px solid #60a5fa;outline-offset:2px}
+</style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
-    <div class="max-w-6xl mx-auto space-y-6">
-        <header class="flex justify-between items-center border-b border-slate-700 pb-4">
-            <div>
-                <h1 class="text-3xl font-bold text-blue-400">ICN Vectorizer</h1>
-                <p class="text-slate-400 text-sm">Contour-based multi-shape vectorization</p>
-            </div>
-            <div class="flex gap-2">
-                <input type="file" id="fileInput" accept="image/png" class="hidden">
-                <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg font-medium transition">
-                    Upload PNG
-                </button>
-            </div>
-        </header>
+<div class="max-w-7xl mx-auto space-y-6">
+<header class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 border-b border-slate-700 pb-4">
+<div>
+<h1 class="text-3xl font-bold text-blue-400">PNG → ICN Vectorizer</h1>
+<p class="text-slate-400 text-sm">Browser-only contour vectorization with color quantization</p>
+</div>
+<div class="flex gap-2">
+<input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" class="hidden">
+<button id="uploadBtn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg font-medium transition">Upload Image</button>
+</div>
+</header>
 
-        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4 h-fit">
-                <h2 class="text-lg font-semibold border-b border-slate-700 pb-2">1. Quantization</h2>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Color Count (N)</label>
-                    <input type="range" id="colorCount" min="2" max="16" value="5" class="w-full">
-                    <div class="flex justify-between text-xs text-slate-500"><span>2</span><span id="colorVal">5</span><span>16</span></div>
-                </div>
-                
-                <h2 class="text-lg font-semibold border-b border-slate-700 pb-2 pt-2">2. Vectorization</h2>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Simplification (Epsilon)</label>
-                    <input type="range" id="simplify" min="0" max="50" value="10" class="w-full">
-                    <div class="flex justify-between text-xs text-slate-500"><span>Sharp</span><span id="simplifyVal">1.0</span><span>Smooth</span></div>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Output Mode</label>
-                    <select id="outputMode" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
-                        <option value="polygons">Filled Polygons (tri)</option>
-                        <option value="outlines">Outlines (line/cont)</option>
-                    </select>
-                </div>
-                
-                <div class="flex items-center gap-2 pt-2">
-                    <input type="checkbox" id="flipX" checked class="w-4 h-4 rounded border-slate-700 bg-slate-900">
-                    <label for="flipX" class="text-sm text-slate-300">Flip X</label>
-                    <input type="checkbox" id="flipY" checked class="w-4 h-4 ml-4 rounded border-slate-700 bg-slate-900">
-                    <label for="flipY" class="text-sm text-slate-300">Flip Y</label>
-                </div>
+<main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<section class="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-5 h-fit">
+<h2 class="text-lg font-semibold border-b border-slate-700 pb-2">Settings</h2>
 
-                <button id="processBtn" class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold transition flex items-center justify-center gap-2">
-                    <span id="btnText">Trace Shapes</span>
-                    <span id="btnLoader" class="loader hidden"></span>
-                </button>
-            </div>
+<div>
+<label class="block text-sm text-slate-400 mb-1">Color Count <span id="colorVal">5</span></label>
+<input type="range" id="colorCount" min="2" max="16" value="5" class="w-full">
+<div class="flex justify-between text-xs text-slate-500"><span>2</span><span>8</span><span>16</span></div>
+</div>
 
-            <div class="lg:col-span-2 space-y-6">
-                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <div class="flex justify-between mb-2 items-center">
-                        <span class="text-xs font-mono text-slate-400">PREVIEW</span>
-                        <div id="status" class="text-xs text-blue-400 italic">Ready</div>
-                    </div>
-                    <div class="flex flex-wrap gap-4 justify-center bg-slate-900 p-4 rounded-lg">
-                        <div class="text-center space-y-2">
-                            <canvas id="sourceCanvas" class="max-w-full"></canvas>
-                            <div class="text-[10px] text-slate-500 uppercase">Original</div>
-                        </div>
-                        <div class="text-center space-y-2">
-                            <canvas id="quantizedCanvas" class="max-w-full"></canvas>
-                            <div class="text-[10px] text-slate-500 uppercase">Quantized Map (NOT RESULT)</div>
-                        </div>
-                    </div>
-                </div>
+<div>
+<label class="block text-sm text-slate-400 mb-1">Simplification <span id="simplifyVal">1.0</span></label>
+<input type="range" id="simplify" min="0" max="50" value="10" class="w-full">
+<div class="flex justify-between text-xs text-slate-500"><span>Sharp</span><span>Balanced</span><span>Smooth</span></div>
+</div>
 
-                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <div class="flex justify-between mb-2 items-center">
-                        <span class="text-xs font-mono text-slate-400">ICN COMMANDS (Layer Sorted & Flip Corrected)</span>
-                        <button id="copyBtn" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded transition">Copy Code</button>
-                    </div>
-                    <textarea id="outputCode" readonly class="w-full h-64 bg-slate-950 text-emerald-400 font-mono text-xs p-4 rounded-lg border border-slate-700 custom-scrollbar outline-none" placeholder="ICN code will appear here..."></textarea>
-                </div>
-            </div>
-        </main>
-    </div>
+<div>
+<label class="block text-sm text-slate-400 mb-1">Minimum Region Size <span id="minRegionVal">8</span> px</label>
+<input type="range" id="minRegion" min="1" max="500" value="8" class="w-full">
+</div>
 
-    <script>
-       class FileSystemHandler {
-  constructor(rootDirectory = '.') {
-    this.rootDirectory = rootDirectory;
-    this.files = {}; // Store file information
-    this.directories = {};
-  }
+<div>
+<label class="block text-sm text-slate-400 mb-1">Output Mode</label>
+<select id="outputMode" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+<option value="polygons">Filled Polygons</option>
+<option value="outlines">Outlines</option>
+</select>
+</div>
 
-  /**
-   * Creates a new directory.
-   * @param {string} directoryName - The name of the directory to create.
-   * @returns {boolean} - True if the directory was created successfully, false otherwise.
-   */
-  createDirectory(directoryName) {
-    if (this.files[directoryName] || this.directories[directoryName]) {
-      return false; // Directory already exists
-    }
+<div>
+<label class="block text-sm text-slate-400 mb-1">ICN Scale <span id="scaleVal">0.1</span> (picture is centered on 0,0)</label>
+<input type="number" id="scaleInput" step="0.01" min="0.001" value="0.1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+</div>
 
-    this.directories[directoryName] = true;
-    this.files[directoryName] = false; // Directories don't store file info
-    return true;
-  }
+<div class="flex flex-wrap items-center gap-3 pt-2">
+<label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="oneLine" checked> Single-line output</label>
+<label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="flipX" checked> Flip X</label>
+<label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="flipY" checked> Flip Y</label>
+<label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" id="transparent" checked> Ignore transparent pixels</label>
+</div>
 
-  /**
-   * Creates a new file.
-   * @param {string} fileName - The name of the file to create.
-   * @param {string} content - The content of the file.
-   * @returns {boolean} - True if the file was created successfully, false otherwise.
-   */
-  createFile(fileName, content) {
-    if (this.files[fileName]) {
-      return false; // File already exists
-    }
+<button id="processBtn" disabled class="w-full bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition flex items-center justify-center gap-2">
+<span id="btnText">Trace Shapes</span>
+<span id="btnLoader" class="loader hidden"></span>
+</button>
 
-    this.files[fileName] = content;
-    return true;
-  }
+<button id="downloadBtn" disabled class="w-full bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed py-2 rounded-lg font-medium transition">Download ICN</button>
+</section>
 
-  /**
-   * Reads the content of a file.
-   * @param {string} fileName - The name of the file to read.
-   * @returns {string | null} - The content of the file, or null if the file doesn't exist.
-   */
-  readFile(fileName) {
-    if (this.files[fileName]) {
-      return this.files[fileName];
-    }
-    return null;
-  }
+<section class="lg:col-span-2 space-y-6">
+<div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+<div class="flex justify-between mb-3 items-center">
+<span class="text-xs font-mono text-slate-400">PREVIEW</span>
+<div id="status" class="text-xs text-blue-400 italic">Upload an image</div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+<div class="text-center space-y-2">
+<div class="bg-slate-950 p-3 rounded-lg min-h-40 flex items-center justify-center"><canvas id="sourceCanvas"></canvas></div>
+<div class="text-[10px] text-slate-500 uppercase">Original</div>
+</div>
+<div class="text-center space-y-2">
+<div class="bg-slate-950 p-3 rounded-lg min-h-40 flex items-center justify-center"><canvas id="quantizedCanvas"></canvas></div>
+<div class="text-[10px] text-slate-500 uppercase">Quantized Map</div>
+</div>
+</div>
+</div>
 
-  /**
-   * Writes to a file (overwrites existing content).
-   * @param {string} fileName - The name of the file to write to.
-   * @param {string} content - The content to write to the file.
-   * @returns {boolean} - True if the write was successful, false otherwise.
-   */
-  writeFile(fileName, content) {
-    if (!this.files[fileName]) {
-      return false; // File doesn't exist, so can't write
-    }
-    this.files[fileName] = content;
-    return true;
-  }
+<div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+<div class="flex justify-between mb-2 items-center gap-2">
+<span class="text-xs font-mono text-slate-400">ICN COMMANDS</span>
+<button id="copyBtn" disabled class="text-xs bg-slate-700 hover:bg-slate-600 disabled:opacity-50 px-3 py-1 rounded transition">Copy Code</button>
+</div>
+<textarea id="outputCode" readonly class="w-full h-96 bg-slate-950 text-emerald-400 font-mono text-xs p-4 rounded-lg border border-slate-700 outline-none resize-y" placeholder="ICN code will appear here..."></textarea>
+</div>
 
-  /**
-   * Deletes a file or directory.  Handles recursive deletion of directories.
-   * @param {string} itemName - The name of the item to delete.
-   * @returns {boolean} - True if the item was deleted successfully, false otherwise.
-   */
-  deleteItem(itemName) {
-    if (this.files[itemName]) {
-      delete this.files[itemName];
-      return true;
-    }
+<div id="palettePanel" class="bg-slate-800 p-4 rounded-xl border border-slate-700 hidden">
+<div class="text-xs font-mono text-slate-400 mb-3">PALETTE</div>
+<div id="palette" class="flex flex-wrap gap-2"></div>
+</div>
+</section>
+</main>
 
-    if (this.directories[itemName]) {
-      delete this.directories[itemName];
-      return true;
-    }
+<div id="dropZone" class="fixed inset-0 pointer-events-none border-4 border-blue-400 opacity-0 transition"></div>
+</div>
 
-    return false;
-  }
+<script>
+const els={
+fileInput:document.getElementById('fileInput'),
+uploadBtn:document.getElementById('uploadBtn'),
+processBtn:document.getElementById('processBtn'),
+downloadBtn:document.getElementById('downloadBtn'),
+copyBtn:document.getElementById('copyBtn'),
+colorCount:document.getElementById('colorCount'),
+colorVal:document.getElementById('colorVal'),
+simplify:document.getElementById('simplify'),
+simplifyVal:document.getElementById('simplifyVal'),
+minRegion:document.getElementById('minRegion'),
+minRegionVal:document.getElementById('minRegionVal'),
+outputMode:document.getElementById('outputMode'),
+flipX:document.getElementById('flipX'),
+flipY:document.getElementById('flipY'),
+transparent:document.getElementById('transparent'),
+sourceCanvas:document.getElementById('sourceCanvas'),
+quantizedCanvas:document.getElementById('quantizedCanvas'),
+outputCode:document.getElementById('outputCode'),
+status:document.getElementById('status'),
+btnText:document.getElementById('btnText'),
+btnLoader:document.getElementById('btnLoader'),
+palettePanel:document.getElementById('palettePanel'),
+palette:document.getElementById('palette'),
+dropZone:document.getElementById('dropZone'),
+scaleInput:document.getElementById('scaleInput'),
+scaleVal:document.getElementById('scaleVal'),
+oneLine:document.getElementById('oneLine')
+};
 
-  /**
-   * Lists the contents of a directory.
-   * @param {string} directoryName - The name of the directory to list.
-   * @returns {Array<string>} - An array of file and directory names.
-   */
-  listDirectory(directoryName) {
-    const contents = [];
-    if (this.directories[directoryName]) {
-      for (const name in this.directories) {
-        if (name !== directoryName) { // Don't include the parent directory
-          contents.push(name);
-        }
-      }
-    }
-    return contents;
-  }
+let sourceImage=null;
+let resultText='';
+let lastBlobName='vectorized.icn';
+
+function setStatus(text,kind='info'){
+els.status.textContent=text;
+els.status.className='text-xs italic '+(kind==='error'?'text-red-400':kind==='ok'?'text-green-400':'text-blue-400');
+}
+
+function hex(c){
+return '#'+[c.r,c.g,c.b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+
+function rgbInteger(c){
+return (Math.round(c.r)<<16)|(Math.round(c.g)<<8)|Math.round(c.b);
+}
+
+function dist2(a,b){
+const dr=a.r-b.r,dg=a.g-b.g,db=a.b-b.b;
+return dr*dr+dg*dg+db*db;
+}
+
+function loadFile(file){
+if(!file||!file.type.startsWith('image/')){
+setStatus('Please choose a PNG, JPEG, or WebP image','error');
+return;
+}
+const reader=new FileReader();
+reader.onload=()=>{
+const img=new Image();
+img.onload=()=>{
+sourceImage=img;
+drawSource();
+els.processBtn.disabled=false;
+setStatus('Image loaded','ok');
+};
+img.onerror=()=>setStatus('Could not decode image','error');
+img.src=reader.result;
+};
+reader.readAsDataURL(file);
+}
+
+function fitSize(w,h,max=900){
+const s=Math.min(1,max/Math.max(w,h));
+return {w:Math.max(1,Math.round(w*s)),h:Math.max(1,Math.round(h*s))};
+}
+
+function drawSource(){
+const s=fitSize(sourceImage.naturalWidth,sourceImage.naturalHeight);
+els.sourceCanvas.width=s.w;
+els.sourceCanvas.height=s.h;
+const ctx=els.sourceCanvas.getContext('2d');
+ctx.clearRect(0,0,s.w,s.h);
+ctx.drawImage(sourceImage,0,0,s.w,s.h);
+els.quantizedCanvas.width=s.w;
+els.quantizedCanvas.height=s.h;
+}
+
+function readPixels(){
+const ctx=els.sourceCanvas.getContext('2d');
+return {
+data:ctx.getImageData(0,0,els.sourceCanvas.width,els.sourceCanvas.height).data,
+w:els.sourceCanvas.width,
+h:els.sourceCanvas.height
+};
+}
+
+function quantize(pixels,w,h,k){
+const ignoreT=els.transparent.checked;
+const samples=[];
+const step=Math.max(1,Math.floor(Math.sqrt((w*h)/14000)));
+for(let y=0;y<h;y+=step){
+for(let x=0;x<w;x+=step){
+const i=(y*w+x)*4;
+if(ignoreT&&pixels[i+3]<8) continue;
+samples.push({r:pixels[i],g:pixels[i+1],b:pixels[i+2],n:1});
+}
+}
+if(!samples.length) return {labels:new Int16Array(w*h).fill(-1),centers:[]};
+
+const centers=[];
+for(let i=0;i<k;i++){
+centers.push({...samples[Math.floor(i*samples.length/k)],n:1});
+}
+
+for(let pass=0;pass<8;pass++){
+const sums=centers.map(()=>({r:0,g:0,b:0,n:0}));
+for(const p of samples){
+let best=0,bd=Infinity;
+for(let c=0;c<centers.length;c++){
+const d=dist2(p,centers[c]);
+if(d<bd){bd=d;best=c;}
+}
+sums[best].r+=p.r;
+sums[best].g+=p.g;
+sums[best].b+=p.b;
+sums[best].n++;
+}
+for(let c=0;c<centers.length;c++){
+if(sums[c].n){
+centers[c].r=Math.round(sums[c].r/sums[c].n);
+centers[c].g=Math.round(sums[c].g/sums[c].n);
+centers[c].b=Math.round(sums[c].b/sums[c].n);
+centers[c].n=sums[c].n;
+}
+}
+}
+
+const labels=new Int16Array(w*h);
+const ctx=els.quantizedCanvas.getContext('2d');
+const out=ctx.createImageData(w,h);
+
+for(let y=0;y<h;y++){
+for(let x=0;x<w;x++){
+const i=(y*w+x)*4;
+if(ignoreT&&pixels[i+3]<8){
+labels[y*w+x]=-1;
+out.data[i+3]=0;
+continue;
+}
+let best=0,bd=Infinity;
+const p={r:pixels[i],g:pixels[i+1],b:pixels[i+2]};
+for(let c=0;c<centers.length;c++){
+const d=dist2(p,centers[c]);
+if(d<bd){bd=d;best=c;}
+}
+labels[y*w+x]=best;
+out.data[i]=centers[best].r;
+out.data[i+1]=centers[best].g;
+out.data[i+2]=centers[best].b;
+out.data[i+3]=255;
+}
+}
+
+ctx.putImageData(out,0,0);
+return {labels,centers};
+}
+
+function connectedComponents(labels,w,h,color,minSize){
+const seen=new Uint8Array(w*h);
+const components=[];
+const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+
+for(let start=0;start<w*h;start++){
+if(seen[start]||labels[start]!==color) continue;
+
+const q=[start];
+seen[start]=1;
+const pixels=[];
+
+for(let qi=0;qi<q.length;qi++){
+const p=q[qi];
+const x=p%w;
+const y=(p/w)|0;
+pixels.push(p);
+
+for(const [dx,dy] of dirs){
+const nx=x+dx,ny=y+dy;
+if(nx<0||ny<0||nx>=w||ny>=h) continue;
+const np=ny*w+nx;
+if(!seen[np]&&labels[np]===color){
+seen[np]=1;
+q.push(np);
+}
+}
+}
+
+if(pixels.length>=minSize) components.push(pixels);
+}
+return components;
+}
+
+function boundaryFromComponent(component,set,w,h){
+const boundary=[];
+for(const p of component){
+const x=p%w,y=(p/w)|0;
+if(
+x===0||!set.has(p-1)||
+x===w-1||!set.has(p+1)||
+y===0||!set.has(p-w)||
+y===h-1||!set.has(p+w)
+){
+boundary.push(p);
+}
+}
+return boundary;
+}
+
+// Moore-neighbor boundary tracer
+function traceBoundary(boundary,w,h,set){
+if(boundary.length<3) return [];
+let start=boundary[0];
+for(const p of boundary) if(p<start) start=p;
+const inside=(x,y)=>x>=0&&y>=0&&x<w&&y<h&&set.has(y*w+x);
+const dirs=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+const sx=start%w, sy=(start/w)|0;
+const pts=[[sx,sy]];
+let x=sx,y=sy,b=4;
+const limit=boundary.length*4+10;
+for(let n=0;n<limit;n++){
+let found=false;
+for(let i=1;i<=8;i++){
+const d=(b+i)%8;
+const nx=x+dirs[d][0], ny=y+dirs[d][1];
+if(inside(nx,ny)){
+const pd=(b+i-1)%8;
+const bx=x+dirs[pd][0]-nx, by=y+dirs[pd][1]-ny;
+b=dirs.findIndex(v=>v[0]===bx&&v[1]===by);
+if(b<0) b=4;
+x=nx; y=ny; found=true;
+break;
+}
+}
+if(!found) break;
+if(x===sx&&y===sy) break;
+pts.push([x,y]);
+}
+return pts;
+}
+
+function perpendicularDistance(p,a,b){
+const x=p[0],y=p[1];
+const x1=a[0],y1=a[1],x2=b[0],y2=b[1];
+const dx=x2-x1,dy=y2-y1;
+if(dx===0&&dy===0) return Math.hypot(x-x1,y-y1);
+return Math.abs(dy*x-dx*y+x2*y1-y2*x1)/Math.hypot(dx,dy);
+}
+
+function simplifyPath(points,epsilon){
+if(points.length<=3) return points;
+
+function douglas(pts){
+if(pts.length<=2) return pts;
+let max=0,index=0;
+
+for(let i=1;i<pts.length-1;i++){
+const d=perpendicularDistance(pts[i],pts[0],pts[pts.length-1]);
+if(d>max){max=d;index=i;}
+}
+
+if(max>epsilon){
+const left=douglas(pts.slice(0,index+1));
+const right=douglas(pts.slice(index));
+return left.slice(0,-1).concat(right);
+}
+
+return [pts[0],pts[pts.length-1]];
+}
+
+const closed=points.concat([points[0]]);
+const simplified=douglas(closed).slice(0,-1);
+return simplified.length>=3?simplified:points;
+}
+
+function polygonArea(points){
+let a=0;
+for(let i=0;i<points.length;i++){
+const p=points[i],q=points[(i+1)%points.length];
+a+=p[0]*q[1]-q[0]*p[1];
+}
+return Math.abs(a/2);
+}
+
+function pointInTriangle(p,a,b,c){
+const s=(a[0]-c[0])*(p[1]-c[1])-(a[1]-c[1])*(p[0]-c[0]);
+const t=(b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]);
+const u=(c[0]-b[0])*(p[1]-b[1])-(c[1]-b[1])*(p[0]-b[0]);
+return (s>=0&&t>=0&&u>=0)||(s<=0&&t<=0&&u<=0);
+}
+
+function cross(a,b,c){
+return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+}
+
+function triangulate(points){
+if(points.length<3) return [];
+if(points.length===3) return [points];
+
+const pts=points.slice();
+let area2=0;
+for(let i=0;i<pts.length;i++){
+const p=pts[i],q=pts[(i+1)%pts.length];
+area2+=p[0]*q[1]-q[0]*p[1];
+}
+if(area2===0) return [];
+if(area2<0) pts.reverse();
+
+const triangles=[];
+let guard=0;
+
+while(pts.length>3&&guard++<points.length*points.length){
+let earFound=false;
+
+for(let i=0;i<pts.length;i++){
+const prev=pts[(i-1+pts.length)%pts.length];
+const curr=pts[i];
+const next=pts[(i+1)%pts.length];
+
+if(cross(prev,curr,next)<=0) continue;
+
+let contains=false;
+for(let j=0;j<pts.length;j++){
+if(j===i||j===(i-1+pts.length)%pts.length||j===(i+1)%pts.length) continue;
+if(pointInTriangle(pts[j],prev,curr,next)){
+contains=true;
+break;
+}
+}
+
+if(contains) continue;
+
+triangles.push([prev,curr,next]);
+pts.splice(i,1);
+earFound=true;
+break;
+}
+
+if(!earFound) break;
+}
+
+if(pts.length===3) triangles.push([pts[0],pts[1],pts[2]]);
+return triangles;
+}
+
+function transformPoint(p,w,h){
+const x=p[0]-w/2, y=p[1]-h/2;
+return [
+els.flipX.checked?-x:x,
+els.flipY.checked?-y:y
+];
+}
+
+function commandHeader(width,height){
+const lines=[];
+const sc=Number(els.scaleInput.value)||0.1;
+lines.push('scale '+sc);
+return lines;
+}
+
+function makeICN(groups,w,h){
+const lines=commandHeader(w,h);
+let shapeCount=0;
+
+for(const group of groups){
+lines.push('c '+hex(group.color));
+
+if(els.outputMode.value==='outlines'){
+lines.push('w '+Math.max(1,Math.round(1/(Number(els.scaleInput.value)||0.1))));
+for(const poly of group.polygons){
+const pts=poly.map(p=>transformPoint(p,w,h));
+if(pts.length<3||polygonArea(pts)<1) continue;
+lines.push('line '+Math.round(pts[0][0])+' '+Math.round(pts[0][1])+' '+Math.round(pts[1][0])+' '+Math.round(pts[1][1]));
+for(let i=2;i<pts.length;i++){
+lines.push('cont '+Math.round(pts[i][0])+' '+Math.round(pts[i][1]));
+}
+lines.push('cont '+Math.round(pts[0][0])+' '+Math.round(pts[0][1]));
+shapeCount++;
+}
+}else{
+const triangles=[];
+for(const poly of group.polygons){
+const pts=poly.map(p=>transformPoint(p,w,h));
+const tris=triangulate(pts);
+for(const tri of tris) triangles.push(tri);
+}
+for(const tri of triangles){
+if(Math.abs(cross(tri[0],tri[1],tri[2]))<0.5) continue;
+lines.push(
+'tri '+
+Math.round(tri[0][0])+' '+Math.round(tri[0][1])+' '+
+Math.round(tri[1][0])+' '+Math.round(tri[1][1])+' '+
+Math.round(tri[2][0])+' '+Math.round(tri[2][1])
+);
+shapeCount++;
+}
+}
 
 }
 
+return {text:lines.join(els.oneLine.checked?' ':'\n'),shapeCount};
+}
 
-// Example Usage:
-const fs = new FileSystemHandler('myFileSystem');
+function renderPalette(centers){
+els.palette.innerHTML='';
+for(const c of centers){
+const sw=document.createElement('div');
+sw.className='flex items-center gap-2 bg-slate-900 rounded px-2 py-1 text-xs font-mono';
 
-fs.createDirectory('documents');
-fs.createFile('myFile.txt', 'This is the content of my file.');
-fs.createDirectory('images');
-fs.createFile('image1.jpg', 'Some image data');
+const box=document.createElement('span');
+box.className='w-5 h-5 rounded border border-slate-600';
+box.style.background=hex(c);
 
-console.log(fs.listDirectory('myFileSystem')); // ['documents', 'images']
-console.log(fs.readFile('myFile.txt')); // "This is the content of my file."
-console.log(fs.listDirectory('documents')); // ['myFile.txt']
-    </script>
+const label=document.createElement('span');
+label.textContent=hex(c)+' / '+rgbInteger(c);
+sw.appendChild(box);
+sw.appendChild(label);
+els.palette.appendChild(sw);
+}
+els.palettePanel.classList.remove('hidden');
+}
+
+async function processImage(){
+if(!sourceImage) return;
+
+els.processBtn.disabled=true;
+els.btnLoader.classList.remove('hidden');
+els.btnText.textContent='Tracing...';
+
+try{
+await new Promise(resolve=>setTimeout(resolve,20));
+
+const {data,w,h}=readPixels();
+const q=quantize(data,w,h,Number(els.colorCount.value));
+const groups=[];
+const minSize=Number(els.minRegion.value);
+const epsilon=Math.max(0.25,Number(els.simplify.value)/8);
+
+for(let c=0;c<q.centers.length;c++){
+const components=connectedComponents(q.labels,w,h,c,minSize);
+const polygons=[];
+
+for(const component of components){
+const set=new Set(component);
+const boundary=boundaryFromComponent(component,set,w,h);
+let points=traceBoundary(boundary,w,h,set);
+
+if(points.length>=3){
+points=simplifyPath(points,epsilon);
+if(points.length>=3&&polygonArea(points)>=1) polygons.push(points);
+}
+}
+
+if(polygons.length) groups.push({color:q.centers[c],polygons});
+}
+
+groups.sort((a,b)=>{
+const areaA=a.polygons.reduce((n,p)=>n+polygonArea(p),0);
+const areaB=b.polygons.reduce((n,p)=>n+polygonArea(p),0);
+return areaB-areaA;
+});
+
+const result=makeICN(groups,w,h);
+resultText=result.text;
+els.outputCode.value=resultText;
+els.copyBtn.disabled=false;
+els.downloadBtn.disabled=false;
+renderPalette(q.centers);
+lastBlobName='vectorized-'+Date.now()+'.icn';
+
+setStatus(result.shapeCount+' ICN primitives generated','ok');
+}catch(error){
+console.error(error);
+setStatus('Vectorization failed: '+error.message,'error');
+}finally{
+els.processBtn.disabled=false;
+els.btnLoader.classList.add('hidden');
+els.btnText.textContent='Trace Shapes';
+}
+}
+
+els.uploadBtn.addEventListener('click',()=>els.fileInput.click());
+
+els.fileInput.addEventListener('change',event=>{
+loadFile(event.target.files[0]);
+});
+
+els.processBtn.addEventListener('click',processImage);
+
+els.colorCount.addEventListener('input',()=>{
+els.colorVal.textContent=els.colorCount.value;
+});
+
+els.simplify.addEventListener('input',()=>{
+els.simplifyVal.textContent=(Number(els.simplify.value)/10).toFixed(1);
+});
+
+els.scaleInput.addEventListener('input',()=>{els.scaleVal.textContent=els.scaleInput.value;});
+
+els.minRegion.addEventListener('input',()=>{
+els.minRegionVal.textContent=els.minRegion.value;
+});
+
+els.copyBtn.addEventListener('click',async()=>{
+if(!resultText) return;
+try{
+await navigator.clipboard.writeText(resultText);
+const old=els.copyBtn.textContent;
+els.copyBtn.textContent='Copied';
+setTimeout(()=>els.copyBtn.textContent=old,1200);
+}catch{
+els.outputCode.select();
+document.execCommand('copy');
+}
+});
+
+els.downloadBtn.addEventListener('click',()=>{
+if(!resultText) return;
+const blob=new Blob([resultText],{type:'text/plain;charset=utf-8'});
+const url=URL.createObjectURL(blob);
+const a=document.createElement('a');
+a.href=url;
+a.download=lastBlobName;
+document.body.appendChild(a);
+a.click();
+a.remove();
+setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+
+['dragenter','dragover'].forEach(type=>{
+document.addEventListener(type,event=>{
+event.preventDefault();
+els.dropZone.style.opacity='0.25';
+});
+});
+
+['dragleave','drop'].forEach(type=>{
+document.addEventListener(type,event=>{
+event.preventDefault();
+if(type==='drop'&&event.dataTransfer.files.length){
+loadFile(event.dataTransfer.files[0]);
+}
+els.dropZone.style.opacity='0';
+});
+});
+
+document.addEventListener('keydown',event=>{
+if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!els.processBtn.disabled){
+processImage();
+}
+});
+</script>
 </body>
 </html>
