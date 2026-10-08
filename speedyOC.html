@@ -1,533 +1,1508 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SpeedyOC</title>
-<style>
-:root{--bg:#fff;--fg:#111;--dim:#777;--line:#ddd;--acc:#2a5bd7}
-@media(prefers-color-scheme:dark){:root{--bg:#141414;--fg:#e6e6e6;--dim:#8a8a8a;--line:#2c2c2c;--acc:#7aa2ff}}
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-body{display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font:14px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-#bar{display:flex;flex-wrap:wrap;gap:6px;padding:6px;border-bottom:1px solid var(--line);align-items:center}
-select,button,input{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);padding:3px 6px;max-width:100%}
-select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--acc)}
-button{cursor:pointer}
-#st{color:var(--dim);margin-left:auto}
-#ml{flex:1;overflow-y:auto;padding:6px 8px}
-.m{padding:6px 0;border-bottom:1px solid var(--line)}
-.h{display:flex;gap:8px;align-items:baseline}
-.n{font-weight:700}
-.t,.rp,.rx{color:var(--dim)}
-.r,.x{cursor:pointer;color:var(--dim);background:none;border:0;padding:0 4px}
-.x{margin-left:auto}
-.r:hover,.x:hover{color:var(--acc)}
-.raw{margin:4px 0 0;padding:4px 6px;border-left:2px solid var(--line);color:var(--dim);font-size:12px;white-space:pre-wrap;word-break:break-all}
-.c{white-space:pre-wrap;word-break:break-word}
-.a a{color:var(--acc);margin-right:10px}
-.rx{font-size:12px}
-.s{color:var(--dim)}
-.s.bad{color:#d33;font-weight:700}
-.s.ok{color:#2a9d4a}
-#rb{padding:4px 8px;border-top:1px solid var(--line);color:var(--dim)}
-#rb[hidden],#th[hidden],#si[hidden]{display:none}
-#f{display:flex;gap:6px;padding:6px;border-top:1px solid var(--line)}
-#in{flex:1;min-width:0}
-#ty{height:18px;padding:0 8px;font-size:12px;color:var(--dim);overflow:hidden;white-space:nowrap}
-#pf{padding:4px 8px;border-top:1px solid var(--line);color:var(--dim);font-size:12px}
-#pf[hidden],#at[hidden]{display:none}
-#pf span{margin-right:10px}
-#pf button{padding:0 4px}
-</style>
-</head>
-<body>
-<div id="bar">
-  <select id="sv" title="Server"></select>
-  <select id="ch" title="Channel"></select>
-  <select id="th" title="Thread" hidden></select>
-  <button id="si" hidden>Sign in</button>
-  <span id="st"></span>
-</div>
-<div id="ml"></div>
-<div id="ty"></div>
-<div id="pf" hidden></div>
-<div id="rb" hidden><span id="rt"></span> <button id="rc" title="Cancel reply">x</button></div>
-<form id="f"><button type="button" id="at" hidden>Attach</button><input type="file" id="fi" multiple hidden><input id="in" autocomplete="off" placeholder="Message" disabled><button>Send</button></form>
-<script>
-(()=>{
-"use strict";
-const $=id=>document.getElementById(id);
-const sv=$("sv"),ch=$("ch"),th=$("th"),si=$("si"),st=$("st"),ml=$("ml"),rb=$("rb"),rt=$("rt"),inp=$("in"),ty=$("ty"),pf=$("pf"),at=$("at"),fi=$("fi");
-const LIMIT=13, CLIENT="indigo", ROTUR="https://rotur.dev", API="https://api.rotur.dev";
-const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch{return d}},
-          set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>SpeedyOC</title>
+        <style>
+            :root {
+                --bg: #fff;
+                --fg: #111;
+                --dim: #777;
+                --line: #ddd;
+                --acc: #2a5bd7;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: #141414;
+                    --fg: #e6e6e6;
+                    --dim: #8a8a8a;
+                    --line: #2c2c2c;
+                    --acc: #7aa2ff;
+                }
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+            }
+            body {
+                display: flex;
+                flex-direction: column;
+                background: var(--bg);
+                color: var(--fg);
+                font:
+                    14px/1.4 ui-monospace,
+                    SFMono-Regular,
+                    Menlo,
+                    Consolas,
+                    monospace;
+            }
+            #bar {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding: 6px;
+                border-bottom: 1px solid var(--line);
+                align-items: center;
+            }
+            select,
+            button,
+            input {
+                font: inherit;
+                color: inherit;
+                background: var(--bg);
+                border: 1px solid var(--line);
+                padding: 3px 6px;
+                max-width: 100%;
+            }
+            select:focus-visible,
+            button:focus-visible,
+            input:focus-visible {
+                outline: 2px solid var(--acc);
+            }
+            button {
+                cursor: pointer;
+            }
+            #st {
+                color: var(--dim);
+                margin-left: auto;
+            }
+            #ml {
+                flex: 1;
+                overflow-y: auto;
+                padding: 6px 8px;
+            }
+            .m {
+                padding: 6px 0;
+                border-bottom: 1px solid var(--line);
+            }
+            .h {
+                display: flex;
+                gap: 8px;
+                align-items: baseline;
+            }
+            .n {
+                font-weight: 700;
+            }
+            .t,
+            .rp,
+            .rx {
+                color: var(--dim);
+            }
+            .r,
+            .x {
+                cursor: pointer;
+                color: var(--dim);
+                background: none;
+                border: 0;
+                padding: 0 4px;
+            }
+            .x {
+                margin-left: auto;
+            }
+            .r:hover,
+            .x:hover {
+                color: var(--acc);
+            }
+            .raw {
+                margin: 4px 0 0;
+                padding: 4px 6px;
+                border-left: 2px solid var(--line);
+                color: var(--dim);
+                font-size: 12px;
+                white-space: pre-wrap;
+                word-break: break-all;
+            }
+            .c {
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .a a {
+                color: var(--acc);
+                margin-right: 10px;
+            }
+            .rx {
+                font-size: 12px;
+            }
+            .s {
+                color: var(--dim);
+            }
+            .s.bad {
+                color: #d33;
+                font-weight: 700;
+            }
+            .s.ok {
+                color: #2a9d4a;
+            }
+            #rb {
+                padding: 4px 8px;
+                border-top: 1px solid var(--line);
+                color: var(--dim);
+            }
+            #rb[hidden],
+            #th[hidden],
+            #si[hidden] {
+                display: none;
+            }
+            #f {
+                display: flex;
+                gap: 6px;
+                padding: 6px;
+                border-top: 1px solid var(--line);
+            }
+            #in {
+                flex: 1;
+                min-width: 0;
+            }
+            #ty {
+                height: 18px;
+                padding: 0 8px;
+                font-size: 12px;
+                color: var(--dim);
+                overflow: hidden;
+                white-space: nowrap;
+            }
+            #pf {
+                padding: 4px 8px;
+                border-top: 1px solid var(--line);
+                color: var(--dim);
+                font-size: 12px;
+            }
+            #pf[hidden],
+            #at[hidden] {
+                display: none;
+            }
+            #pf span {
+                margin-right: 10px;
+            }
+            #pf button {
+                padding: 0 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="bar">
+            <select id="sv" title="Server"></select>
+            <select id="ch" title="Channel"></select>
+            <select id="th" title="Thread" hidden></select>
+            <button id="si" hidden>Sign in</button>
+            <span id="st"></span>
+        </div>
+        <div id="ml"></div>
+        <div id="ty"></div>
+        <div id="pf" hidden></div>
+        <div id="rb" hidden>
+            <span id="rt"></span>
+            <button id="rc" title="Cancel reply">x</button>
+        </div>
+        <form id="f">
+            <button type="button" id="at" hidden>Attach</button
+            ><input type="file" id="fi" multiple hidden /><input
+                id="in"
+                autocomplete="off"
+                placeholder="Message"
+                disabled
+            /><button>Send</button>
+        </form>
+        <script>
+            (() => {
+                "use strict";
+                const $ = (id) => document.getElementById(id);
+                const sv = $("sv"),
+                    ch = $("ch"),
+                    th = $("th"),
+                    si = $("si"),
+                    st = $("st"),
+                    ml = $("ml"),
+                    rb = $("rb"),
+                    rt = $("rt"),
+                    inp = $("in"),
+                    ty = $("ty"),
+                    pf = $("pf"),
+                    at = $("at"),
+                    fi = $("fi");
+                const LIMIT = 13,
+                    CLIENT = "indigo",
+                    ROTUR = "https://rotur.dev",
+                    API = "https://api.rotur.dev";
+                const ls = {
+                    get(k, d) {
+                        try {
+                            const v = localStorage.getItem(k);
+                            return v == null ? d : JSON.parse(v);
+                        } catch {
+                            return d;
+                        }
+                    },
+                    set(k, v) {
+                        try {
+                            localStorage.setItem(k, JSON.stringify(v));
+                        } catch {}
+                    },
+                };
 
-let servers=ls.get("oc_servers",[]);
-let token=ls.get("oc_token",null);
-let cur=null;
-let ws=null, hs=null, me=null, authed=false, retry=0, gen=0;
-let channels=[], threads=[], users=new Map();
-let chan=null, thread=null;
-let msgs=[], nodes=new Map();
-let replyTo=null, seq=0, pend=new Map(), refetchT=0, pwTry=null;
-let clock=null, noSign=false, sdk=null; const keyCache=new Map();
-let unread=new Map(), unrT=0;
-let typers=new Map(), lastTyp=0, files=[], busy=false, localTok=null;
+                let servers = ls.get("oc_servers", []);
+                let token = ls.get("oc_token", null);
+                let cur = null;
+                let ws = null,
+                    hs = null,
+                    me = null,
+                    authed = false,
+                    retry = 0,
+                    gen = 0;
+                let channels = [],
+                    threads = [],
+                    users = new Map();
+                let chan = null,
+                    thread = null;
+                let msgs = [],
+                    nodes = new Map();
+                let replyTo = null,
+                    seq = 0,
+                    pend = new Map(),
+                    refetchT = 0,
+                    pwTry = null;
+                let clock = null,
+                    noSign = false,
+                    sdk = null;
+                let linkT = 0,
+                    linkGen = 0;
+                const LINK_PERMS = "account:view,signing:private";
+                const keyCache = new Map();
+                let unread = new Map(),
+                    unrT = 0;
+                let typers = new Map(),
+                    lastTyp = 0,
+                    files = [],
+                    busy = false,
+                    localTok = null;
 
-const fmt=new Intl.DateTimeFormat(undefined,{hour:"2-digit",minute:"2-digit"});
-const fmtD=new Intl.DateTimeFormat(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
-const todayStr=()=>new Date().toDateString();
-function when(ts){const d=new Date(ts*1000);return d.toDateString()===todayStr()?fmt.format(d):fmtD.format(d)}
-const status=t=>{st.textContent=t};
+                const fmt = new Intl.DateTimeFormat(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+                const fmtD = new Intl.DateTimeFormat(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
+                const todayStr = () => new Date().toDateString();
+                function when(ts) {
+                    const d = new Date(ts * 1000);
+                    return d.toDateString() === todayStr()
+                        ? fmt.format(d)
+                        : fmtD.format(d);
+                }
+                const status = (t) => {
+                    st.textContent = t;
+                };
 
+                function normUrl(u) {
+                    u = u.trim();
+                    if (!u) return null;
+                    if (!/^[a-z]+:\/\//i.test(u)) u = "https://" + u;
+                    try {
+                        const x = new URL(u);
+                        return x.origin;
+                    } catch {
+                        return null;
+                    }
+                }
+                function drawServers() {
+                    const f = document.createDocumentFragment();
+                    for (const s of servers) {
+                        const o = document.createElement("option");
+                        o.value = s.url;
+                        o.textContent = s.name || s.url;
+                        f.append(o);
+                    }
+                    let o = document.createElement("option");
+                    o.value = "__add";
+                    o.textContent = "+ Add server";
+                    f.append(o);
+                    if (cur) {
+                        o = document.createElement("option");
+                        o.value = "__rm";
+                        o.textContent = "- Remove current";
+                        f.append(o);
+                    }
+                    sv.replaceChildren(f);
+                    if (cur) sv.value = cur.url;
+                    else sv.selectedIndex = -1;
+                }
+                sv.onchange = () => {
+                    const v = sv.value;
+                    if (v === "__add") {
+                        const u = normUrl(
+                            prompt("Server URL (e.g. chat.example.com)") || "",
+                        );
+                        if (u) {
+                            if (!servers.some((s) => s.url === u)) {
+                                servers.push({ url: u, name: new URL(u).host });
+                                ls.set("oc_servers", servers);
+                            }
+                            connect(servers.find((s) => s.url === u));
+                        } else drawServers();
+                    } else if (v === "__rm") {
+                        if (
+                            cur &&
+                            confirm("Remove " + (cur.name || cur.url) + "?")
+                        ) {
+                            servers = servers.filter((s) => s !== cur);
+                            ls.set("oc_servers", servers);
+                            const n = servers[0] || null;
+                            if (n) connect(n);
+                            else {
+                                close_();
+                                cur = null;
+                                reset();
+                                drawServers();
+                                status("add a server");
+                            }
+                        } else drawServers();
+                    } else connect(servers.find((s) => s.url === v));
+                };
 
-function normUrl(u){
-  u=u.trim(); if(!u) return null;
-  if(!/^[a-z]+:\/\//i.test(u)) u="https://"+u;
-  try{const x=new URL(u);return x.origin}catch{return null}
-}
-function drawServers(){
-  const f=document.createDocumentFragment();
-  for(const s of servers){const o=document.createElement("option");o.value=s.url;o.textContent=s.name||s.url;f.append(o)}
-  let o=document.createElement("option");o.value="__add";o.textContent="+ Add server";f.append(o);
-  if(cur){o=document.createElement("option");o.value="__rm";o.textContent="- Remove current";f.append(o)}
-  sv.replaceChildren(f);
-  if(cur) sv.value=cur.url; else sv.selectedIndex=-1;
-}
-sv.onchange=()=>{
-  const v=sv.value;
-  if(v==="__add"){
-    const u=normUrl(prompt("Server URL (e.g. chat.example.com)")||"");
-    if(u){ if(!servers.some(s=>s.url===u)){servers.push({url:u,name:new URL(u).host});ls.set("oc_servers",servers)} connect(servers.find(s=>s.url===u)) }
-    else drawServers();
-  }else if(v==="__rm"){
-    if(cur&&confirm("Remove "+(cur.name||cur.url)+"?")){
-      servers=servers.filter(s=>s!==cur);ls.set("oc_servers",servers);
-      const n=servers[0]||null; if(n) connect(n); else {close_();cur=null;reset();drawServers();status("add a server")}
-    }else drawServers();
-  }else connect(servers.find(s=>s.url===v));
-};
+                function close_() {
+                    gen++;
+                    if (ws) {
+                        ws.onclose = ws.onmessage = ws.onerror = null;
+                        try {
+                            ws.close();
+                        } catch {}
+                        ws = null;
+                    }
+                    pend.clear();
+                }
+                function reset() {
+                    files = [];
+                    drawFiles();
+                    at.hidden = true;
+                    localTok = null;
+                    busy = false;
+                    unread = new Map();
+                    hs = me = clock = null;
+                    noSign = false;
+                    authed = false;
+                    channels = [];
+                    threads = [];
+                    users = new Map();
+                    chan = thread = null;
+                    clearConv();
+                    drawChannels();
+                    drawThreads();
+                    inp.disabled = true;
+                    si.hidden = true;
+                }
+                function connect(s) {
+                    close_();
+                    cur = s;
+                    reset();
+                    drawServers();
+                    ls.set("oc_last", s.url);
+                    retry = 0;
+                    open_();
+                }
+                function open_() {
+                    const g = gen,
+                        s = cur;
+                    status("connecting...");
+                    ws = new WebSocket(s.url.replace(/^http/, "ws") + "/");
+                    ws.onmessage = (e) => {
+                        if (g !== gen) return;
+                        let f;
+                        try {
+                            f = JSON.parse(e.data);
+                        } catch {
+                            return;
+                        }
+                        frame(f);
+                    };
+                    ws.onclose = () => {
+                        if (g !== gen) return;
+                        authed = false;
+                        inp.disabled = true;
+                        status("disconnected, retrying...");
+                        setTimeout(
+                            () => {
+                                if (g === gen) open_();
+                            },
+                            Math.min(15000, 1000 * ++retry),
+                        );
+                    };
+                    ws.onopen = () => {
+                        retry = 0;
+                    };
+                }
+                function send(o, cb) {
+                    if (!ws || ws.readyState !== 1) return;
+                    if (cb) {
+                        const l = "l" + ++seq;
+                        o.listener = l;
+                        pend.set(l, cb);
+                    }
+                    ws.send(JSON.stringify(o));
+                }
 
+                async function signIn(extra) {
+                    if (!hs) return;
+                    if (hs.auth_mode === "cracked-only") {
+                        status("server needs a local account (not supported)");
+                        return;
+                    }
+                    if (!token) {
+                        si.hidden = false;
+                        status("signed out");
+                        return;
+                    }
+                    const key = hs.validator_key || "";
+                    if (
+                        !key.startsWith("originChats-") ||
+                        !key.includes(new URL(cur.url).host)
+                    ) {
+                        status("validator key does not match this server");
+                        return;
+                    }
+                    const g = gen;
+                    try {
+                        const r = await fetch(
+                            API +
+                                "/generate_validator?auth=" +
+                                encodeURIComponent(token) +
+                                "&key=" +
+                                encodeURIComponent(key),
+                        );
+                        if (!r.ok) throw 0;
+                        const { validator } = await r.json();
+                        if (g !== gen) return;
+                        const m = {
+                            cmd: "auth",
+                            validator,
+                            client: CLIENT,
+                            device: "computer",
+                        };
+                        if (extra) Object.assign(m, extra);
+                        send(m);
+                    } catch {
+                        status("Rotur sign-in failed");
+                        token = null;
+                        ls.set("oc_token", null);
+                        si.hidden = false;
+                    }
+                }
+                function popup() {
+                    const u = new URL(ROTUR + "/auth");
+                    u.searchParams.set("return_to", location.href);
+                    u.searchParams.set("requires", "full,signing:private");
+                    const w = window.open(
+                        u.toString(),
+                        "rotur",
+                        "width=480,height=680",
+                    );
+                    if (!w) {
+                        const t = prompt(
+                            "Popup blocked. Paste your Rotur token:",
+                        );
+                        if (t) gotToken(t.trim());
+                    }
+                }
+                function gotToken(t) {
+                    linkGen++;
+                    clearTimeout(linkT);
+                    token = t;
+                    ls.set("oc_token", t);
+                    si.hidden = true;
+                    si.textContent = "Sign in";
+                    noSign = false;
+                    sdk = null;
+                    if (hs && !authed) signIn();
+                }
+                function askMethod() {
+                    const a = (
+                        prompt(
+                            "Sign in method:\n1 = token\n2 = popup\n3 = link code",
+                            "2",
+                        ) || ""
+                    )
+                        .trim()
+                        .toLowerCase();
+                    if (a === "1" || a === "token") {
+                        const t = prompt("Paste your Rotur token:");
+                        if (t && t.trim()) gotToken(t.trim());
+                    } else if (a === "2" || a === "popup") popup();
+                    else if (a === "3" || a === "link" || a === "linking")
+                        linkLogin();
+                }
+                async function linkLogin() {
+                    clearTimeout(linkT);
+                    const g = ++linkGen;
+                    try {
+                        const base = API + "/link/code?name=SpeedyOC";
+                        let r = await fetch(
+                            base +
+                                "&permissions=" +
+                                encodeURIComponent(LINK_PERMS),
+                        );
+                        // unknown permission name -> retry and let the user choose
+                        if (r.status === 400) r = await fetch(base);
+                        if (!r.ok) throw 0;
+                        const { code, expires_in } = await r.json();
+                        if (g !== linkGen) return;
+                        const end = Date.now() + expires_in * 1000;
+                        status("link code " + code + " -> enter at rotur.dev/link");
+                        const poll = async () => {
+                            if (g !== linkGen) return;
+                            if (Date.now() > end) {
+                                status("link code expired");
+                                si.hidden = false;
+                                return;
+                            }
+                            try {
+                                const s = await fetch(
+                                    API + "/link/status?code=" + code,
+                                );
+                                if (s.ok) {
+                                    // one-shot: this call deletes the code
+                                    const u = await fetch(
+                                        API + "/link/user?code=" + code,
+                                    );
+                                    if (u.ok) {
+                                        const j = await u.json();
+                                        if (j.token && g === linkGen) {
+                                            gotToken(j.token);
+                                            return;
+                                        }
+                                    }
+                                }
+                            } catch {}
+                            linkT = setTimeout(poll, 3000);
+                        };
+                        linkT = setTimeout(poll, 3000);
+                    } catch {
+                        status("link failed");
+                        si.hidden = false;
+                    }
+                }
+                si.onclick = () => (noSign ? popup() : askMethod());
+                addEventListener("message", (e) => {
+                    if (
+                        e.origin !== ROTUR ||
+                        !e.data ||
+                        e.data.type !== "rotur-auth-token"
+                    )
+                        return;
+                    gotToken(e.data.token);
+                });
 
-function close_(){gen++;if(ws){ws.onclose=ws.onmessage=ws.onerror=null;try{ws.close()}catch{}ws=null}pend.clear()}
-function reset(){files=[];drawFiles();at.hidden=true;localTok=null;busy=false;unread=new Map();hs=me=clock=null;noSign=false;authed=false;channels=[];threads=[];users=new Map();chan=thread=null;clearConv();drawChannels();drawThreads();inp.disabled=true;si.hidden=true}
-function connect(s){
-  close_();cur=s;reset();drawServers();ls.set("oc_last",s.url);
-  retry=0;open_();
-}
-function open_(){
-  const g=gen,s=cur;
-  status("connecting...");
-  ws=new WebSocket(s.url.replace(/^http/,"ws")+"/");
-  ws.onmessage=e=>{if(g!==gen)return;let f;try{f=JSON.parse(e.data)}catch{return}frame(f)};
-  ws.onclose=()=>{if(g!==gen)return;authed=false;inp.disabled=true;status("disconnected, retrying...");setTimeout(()=>{if(g===gen)open_()},Math.min(15000,1000*(++retry)))};
-  ws.onopen=()=>{retry=0};
-}
-function send(o,cb){
-  if(!ws||ws.readyState!==1)return;
-  if(cb){const l="l"+(++seq);o.listener=l;pend.set(l,cb)}
-  ws.send(JSON.stringify(o));
-}
+                function frame(f) {
+                    if (f.listener && pend.has(f.listener)) {
+                        const cb = pend.get(f.listener);
+                        pend.delete(f.listener);
+                        cb(f);
+                    }
+                    switch (f.cmd) {
+                        case "handshake":
+                            hs = f.val;
+                            {
+                                let t = +hs.server_time;
+                                if (t) {
+                                    if (t > 1e12) t /= 1000;
+                                    clock = { srv: t, perf: performance.now() };
+                                }
+                            }
+                            if (
+                                hs.server &&
+                                hs.server.name &&
+                                cur.name !== hs.server.name
+                            ) {
+                                cur.name = hs.server.name;
+                                ls.set("oc_servers", servers);
+                                drawServers();
+                            }
+                            signIn();
+                            break;
+                        case "auth_error": {
+                            const r = f.reason;
+                            if (
+                                r === "password_required" ||
+                                r === "password_incorrect"
+                            ) {
+                                const p = prompt(f.val + "\nServer password:");
+                                if (p) return signIn({ server_password: p });
+                            } else if (
+                                r === "invite_required" ||
+                                r === "invite_invalid" ||
+                                r === "invite_expired"
+                            ) {
+                                const p = prompt(f.val + "\nInvite code:");
+                                if (p) return signIn({ invite_code: p });
+                            }
+                            status(f.val || "auth error");
+                            if (f.val === "Invalid authentication") {
+                                si.hidden = false;
+                            }
+                            break;
+                        }
+                        case "ready":
+                            me = f.user;
+                            authed = true;
+                            si.hidden = true;
+                            inp.disabled = false;
+                            if (me && me.color) users.set(me.username, me);
+                            localTok = f.local_upload_token || null;
+                            at.hidden = !(
+                                hs &&
+                                hs.attachments &&
+                                hs.attachments.enabled
+                            );
+                            status(me ? me.username : "online");
+                            syncClock();
+                            loadUnreads();
+                            send({ cmd: "users_list" }, (u) => {
+                                if (u.users)
+                                    for (const x of u.users)
+                                        users.set(x.username, x);
+                                rerenderNames();
+                            });
+                            send({ cmd: "channels_get" }, (r) => {
+                                channels = (r.val || []).filter(
+                                    (c) => c.type !== "separator",
+                                );
+                                drawChannels();
+                                pickChannel(ls.get("oc_ch_" + cur.url, null));
+                            });
+                            break;
+                        case "message_new":
+                        case "message_edit": {
+                            const here = f.thread_id
+                                ? f.thread_id === thread
+                                : f.channel === chan && thread === null;
+                            if (!here) {
+                                if (
+                                    f.cmd === "message_new" &&
+                                    f.message &&
+                                    (!me || f.message.user !== me.username)
+                                ) {
+                                    const k = f.thread_id
+                                        ? "thread/" + f.thread_id
+                                        : f.channel;
+                                    const e = unread.get(k) || {
+                                        n: 0,
+                                        p: 0,
+                                        parent: f.channel,
+                                    };
+                                    e.n++;
+                                    if (f.message.ping) e.p++;
+                                    unread.set(k, e);
+                                    badges();
+                                }
+                                break;
+                            }
+                            if (f.message && f.cmd === "message_new")
+                                setTyper(f.message.user, 0);
+                            if (f.message) {
+                                upsert(f.message);
+                                if (
+                                    f.cmd === "message_new" &&
+                                    document.hasFocus() &&
+                                    f.message.user !== (me && me.username)
+                                )
+                                    ack();
+                            }
+                            break;
+                        }
+                        case "typing":
+                            if (
+                                (f.thread_id || f.channel) === key() &&
+                                (!me || f.user !== me.username)
+                            )
+                                setTyper(
+                                    f.user,
+                                    f.duration == null ? 6000 : f.duration,
+                                );
+                            break;
+                        case "unreads_update":
+                            clearTimeout(unrT);
+                            unrT = setTimeout(loadUnreads, 200);
+                            break;
+                        case "message_delete":
+                            if ((f.thread_id || f.channel) === key())
+                                drop(f.id);
+                            break;
+                        default:
+                            if (
+                                /react/.test(f.cmd || "") &&
+                                (f.thread_id || f.channel) === key()
+                            )
+                                refetch();
+                            else if (
+                                f.cmd === "thread_create" ||
+                                f.cmd === "thread_delete" ||
+                                f.cmd === "thread_update"
+                            ) {
+                                if (
+                                    f.channel === chan ||
+                                    (f.thread &&
+                                        f.thread.parent_channel === chan)
+                                )
+                                    loadThreads();
+                            } else if (f.cmd === "user_update" && f.user)
+                                users.set(f.user.username, f.user);
+                    }
+                }
 
+                const key = () => thread || chan;
+                function chCount(c) {
+                    let n = 0,
+                        p = 0;
+                    const e = unread.get(c.name);
+                    if (e) {
+                        n += e.n;
+                        p += e.p;
+                    }
+                    if (c.type === "forum")
+                        for (const [k, v] of unread)
+                            if (
+                                k.startsWith("thread/") &&
+                                v.parent === c.name
+                            ) {
+                                n += v.n;
+                                p += v.p;
+                            }
+                    return [n, p];
+                }
+                function chLabel(c) {
+                    const [n, p] = chCount(c);
+                    return (
+                        (c.type === "forum"
+                            ? "[forum] "
+                            : c.type === "voice"
+                              ? "(voice) "
+                              : "#") +
+                        c.name +
+                        (n ? " (" + n + (p ? " @" + p : "") + ")" : "")
+                    );
+                }
+                function badges() {
+                    for (const o of ch.options) {
+                        const c = channels.find((x) => x.name === o.value);
+                        if (c) o.textContent = chLabel(c);
+                    }
+                }
+                function loadUnreads() {
+                    send({ cmd: "unreads_get" }, (r) => {
+                        const v = r.val || r.unreads || {};
+                        const m = new Map();
+                        for (const k in v) {
+                            const e = v[k];
+                            if (
+                                e &&
+                                typeof e === "object" &&
+                                ("unread_count" in e || "ping_count" in e)
+                            )
+                                m.set(k, {
+                                    n: e.unread_count | 0,
+                                    p: e.ping_count | 0,
+                                    parent: e.parent_channel,
+                                });
+                        }
+                        unread = m;
+                        badges();
+                    });
+                }
+                function ack() {
+                    const k = thread ? "thread/" + thread : chan;
+                    if (!k) return;
+                    if (unread.has(k)) {
+                        unread.delete(k);
+                        badges();
+                    }
+                    const m = { cmd: "unreads_ack" };
+                    if (thread) m.thread_id = thread;
+                    else m.channel = chan;
+                    send(m, () => {});
+                }
+                function drawChannels() {
+                    const f = document.createDocumentFragment();
+                    for (const c of channels) {
+                        const o = document.createElement("option");
+                        o.value = c.name;
+                        o.textContent = chLabel(c);
+                        f.append(o);
+                    }
+                    ch.replaceChildren(f);
+                    if (chan) ch.value = chan;
+                    else ch.selectedIndex = -1;
+                }
+                function drawThreads() {
+                    const c = channels.find((x) => x.name === chan);
+                    th.hidden = !(c && c.type === "forum");
+                    const f = document.createDocumentFragment();
+                    for (const t of threads) {
+                        const o = document.createElement("option");
+                        o.value = t.id;
+                        o.textContent = t.name;
+                        f.append(o);
+                    }
+                    th.replaceChildren(f);
+                    if (thread) th.value = thread;
+                    else th.selectedIndex = -1;
+                }
+                function pickChannel(name) {
+                    if (!channels.length) return;
+                    const c =
+                        channels.find((x) => x.name === name) ||
+                        channels.find((x) => x.type === "text") ||
+                        channels[0];
+                    chan = c.name;
+                    thread = null;
+                    ch.value = chan;
+                    ls.set("oc_ch_" + cur.url, chan);
+                    clearReply();
+                    clearConv();
+                    threads = [];
+                    drawThreads();
+                    if (c.type === "forum") {
+                        loadThreads();
+                    } else loadMsgs();
+                }
+                function loadThreads() {
+                    const g = gen,
+                        c = chan;
+                    send({ cmd: "threads_get", channel: c, limit: 50 }, (r) => {
+                        if (g !== gen || c !== chan) return;
+                        threads = r.val || [];
+                        drawThreads();
+                        if (!thread && threads.length) {
+                            thread = threads[0].id;
+                            th.value = thread;
+                            loadMsgs();
+                        }
+                    });
+                }
+                ch.onchange = () => pickChannel(ch.value);
+                th.onchange = () => {
+                    thread = th.value;
+                    clearReply();
+                    clearConv();
+                    loadMsgs();
+                };
 
-async function signIn(extra){
-  if(!hs)return;
-  if(hs.auth_mode==="cracked-only"){status("server needs a local account (not supported)");return}
-  if(!token){si.hidden=false;status("signed out");return}
-  const key=hs.validator_key||"";
-  if(!key.startsWith("originChats-")||!key.includes(new URL(cur.url).host)){status("validator key does not match this server");return}
-  const g=gen;
-  try{
-    const r=await fetch(API+"/generate_validator?auth="+encodeURIComponent(token)+"&key="+encodeURIComponent(key));
-    if(!r.ok)throw 0;
-    const {validator}=await r.json();
-    if(g!==gen)return;
-    const m={cmd:"auth",validator,client:CLIENT,device:"computer"};
-    if(extra)Object.assign(m,extra);
-    send(m);
-  }catch{status("Rotur sign-in failed");token=null;ls.set("oc_token",null);si.hidden=false}
-}
-function popup(){
-  const u=new URL(ROTUR+"/auth");
-  u.searchParams.set("return_to",location.href);
-  u.searchParams.set("requires","full,signing:private");
-  const w=window.open(u.toString(),"rotur","width=480,height=680");
-  if(!w){const t=prompt("Popup blocked. Paste your Rotur token:");if(t)gotToken(t.trim())}
-}
-function gotToken(t){token=t;ls.set("oc_token",t);si.hidden=true;si.textContent="Sign in";noSign=false;sdk=null;if(hs&&!authed)signIn()}
-si.onclick=popup;
-addEventListener("message",e=>{
-  if(e.origin!==ROTUR||!e.data||e.data.type!=="rotur-auth-token")return;
-  gotToken(e.data.token);
-});
+                function clearConv() {
+                    clearTyping();
+                    msgs = [];
+                    nodes.clear();
+                    ml.replaceChildren();
+                }
+                function loadMsgs() {
+                    const g = gen,
+                        k = key();
+                    const req = { cmd: "messages_get", limit: LIMIT };
+                    if (thread) req.thread_id = thread;
+                    else req.channel = chan;
+                    send(req, (r) => {
+                        if (g !== gen || k !== key()) return;
+                        if (r.cmd === "error") {
+                            status(r.val);
+                            return;
+                        }
+                        const a = (r.val || r.messages || []).slice(-LIMIT);
+                        msgs = a;
+                        nodes.clear();
+                        const f = document.createDocumentFragment();
+                        for (const m of a) {
+                            const n = build(m);
+                            nodes.set(m.id, n);
+                            f.append(n);
+                        }
+                        ml.replaceChildren(f);
+                        ml.scrollTop = ml.scrollHeight;
+                        ack();
+                    });
+                }
+                function refetch() {
+                    clearTimeout(refetchT);
+                    refetchT = setTimeout(loadMsgs, 150);
+                }
+                function nearBottom() {
+                    return (
+                        ml.scrollHeight - ml.scrollTop - ml.clientHeight < 80
+                    );
+                }
+                function upsert(m) {
+                    const old = nodes.get(m.id),
+                        stick = nearBottom();
+                    if (old) {
+                        const i = msgs.findIndex((x) => x.id === m.id);
+                        if (i >= 0) msgs[i] = m;
+                        const n = build(m);
+                        old.replaceWith(n);
+                        nodes.set(m.id, n);
+                        return;
+                    }
+                    msgs.push(m);
+                    const n = build(m);
+                    nodes.set(m.id, n);
+                    ml.append(n);
+                    while (msgs.length > LIMIT) {
+                        const o = msgs.shift();
+                        const x = nodes.get(o.id);
+                        if (x) x.remove();
+                        nodes.delete(o.id);
+                    }
+                    if (stick) ml.scrollTop = ml.scrollHeight;
+                }
+                function drop(id) {
+                    const n = nodes.get(id);
+                    if (!n) return;
+                    n.remove();
+                    nodes.delete(id);
+                    msgs = msgs.filter((m) => m.id !== id);
+                }
 
+                function colorOf(m) {
+                    if (m.webhook && m.webhook.usercolor)
+                        return m.webhook.usercolor;
+                    if (m.alias && m.alias.color) return m.alias.color;
+                    const u = users.get(m.user);
+                    return (u && u.color) || "";
+                }
+                function nameOf(m) {
+                    if (m.alias && m.alias.name) return m.alias.name;
+                    if (m.webhook && m.webhook.name) return m.webhook.name;
+                    const u = users.get(m.user);
+                    return (u && u.nickname) || m.user;
+                }
+                function el(tag, cls, txt) {
+                    const e = document.createElement(tag);
+                    if (cls) e.className = cls;
+                    if (txt != null) e.textContent = txt;
+                    return e;
+                }
+                function emojiLabel(k) {
+                    if (!k.startsWith("originChats:")) return k;
+                    const i = k.lastIndexOf("/");
+                    return ":emoji" + (i >= 0 ? k.slice(i + 1) : "") + ":";
+                }
+                function build(m) {
+                    const d = el("div", "m");
+                    d.dataset.id = m.id;
+                    const h = el("div", "h");
+                    const n = el("span", "n", nameOf(m));
+                    const c = colorOf(m);
+                    if (c) n.style.color = c;
+                    n.dataset.u = m.user || "";
+                    const sm = el("span", "s");
+                    h.append(
+                        n,
+                        sm,
+                        el(
+                            "span",
+                            "t",
+                            when(m.timestamp) + (m.edited ? " (edited)" : ""),
+                        ),
+                    );
+                    if (m.signature && !m.edited_by)
+                        verify(m).then((r) => {
+                            sm.textContent =
+                                r === "verified"
+                                    ? ""
+                                    : r === "invalid"
+                                      ? "\u26a0"
+                                      : r === "unavailable"
+                                        ? "?"
+                                        : "";
+                            sm.title = "signature: " + r;
+                            sm.className =
+                                "s" +
+                                (r === "verified"
+                                    ? " ok"
+                                    : r === "invalid"
+                                      ? " bad"
+                                      : "");
+                        });
+                    const xb = el("button", "x", "raw");
+                    xb.dataset.id = m.id;
+                    const rb_ = el("button", "r", "reply");
+                    rb_.dataset.id = m.id;
+                    rb_.dataset.u = m.user || "";
+                    h.append(xb, rb_);
+                    d.append(h);
+                    if (m.reply_to) {
+                        d.append(
+                            el(
+                                "div",
+                                "rp",
+                                "> " +
+                                    (m.reply_to.user || "") +
+                                    ": " +
+                                    (m.reply_to.preview || ""),
+                            ),
+                        );
+                    }
+                    if (m.content) d.append(el("div", "c", m.content));
+                    if (m.attachments && m.attachments.length) {
+                        const a = el("div", "a");
+                        for (const x of m.attachments) {
+                            const l = el("a", null, x.name || "file");
+                            l.href = x.url;
+                            l.target = "_blank";
+                            l.rel = "noopener noreferrer";
+                            a.append(l);
+                        }
+                        d.append(a);
+                    }
+                    if (m.reactions) {
+                        const parts = [];
+                        for (const k in m.reactions) {
+                            const u = m.reactions[k];
+                            if (u && u.length)
+                                parts.push(emojiLabel(k) + " " + u.length);
+                        }
+                        if (parts.length)
+                            d.append(el("div", "rx", parts.join("  ")));
+                    }
+                    return d;
+                }
+                function rerenderNames() {
+                    for (const n of ml.querySelectorAll(".n")) {
+                        const u = users.get(n.dataset.u);
+                        if (u) {
+                            if (u.color) n.style.color = u.color;
+                            if (u.nickname) n.textContent = u.nickname;
+                        }
+                    }
+                }
 
-function frame(f){
-  if(f.listener&&pend.has(f.listener)){const cb=pend.get(f.listener);pend.delete(f.listener);cb(f)}
-  switch(f.cmd){
-    case "handshake":
-      hs=f.val;
-      {let t=+hs.server_time;if(t){if(t>1e12)t/=1000;clock={srv:t,perf:performance.now()}}}
-      if(hs.server&&hs.server.name&&cur.name!==hs.server.name){cur.name=hs.server.name;ls.set("oc_servers",servers);drawServers()}
-      signIn();break;
-    case "auth_error":{
-      const r=f.reason;
-      if(r==="password_required"||r==="password_incorrect"){const p=prompt(f.val+"\nServer password:");if(p)return signIn({server_password:p})}
-      else if(r==="invite_required"||r==="invite_invalid"||r==="invite_expired"){const p=prompt(f.val+"\nInvite code:");if(p)return signIn({invite_code:p})}
-      status(f.val||"auth error");
-      if(f.val==="Invalid authentication"){si.hidden=false}
-      break}
-    case "ready":
-      me=f.user;authed=true;si.hidden=true;inp.disabled=false;
-      if(me&&me.color)users.set(me.username,me);
-      localTok=f.local_upload_token||null;at.hidden=!(hs&&hs.attachments&&hs.attachments.enabled);
-      status(me?me.username:"online");syncClock();loadUnreads();
-      send({cmd:"users_list"},u=>{if(u.users)for(const x of u.users)users.set(x.username,x);rerenderNames()});
-      send({cmd:"channels_get"},r=>{channels=(r.val||[]).filter(c=>c.type!=="separator");drawChannels();pickChannel(ls.get("oc_ch_"+cur.url,null))});
-      break;
-    case "message_new":case "message_edit":{
-      const here=f.thread_id?f.thread_id===thread:(f.channel===chan&&thread===null);
-      if(!here){
-        if(f.cmd==="message_new"&&f.message&&(!me||f.message.user!==me.username)){
-          const k=f.thread_id?"thread/"+f.thread_id:f.channel;
-          const e=unread.get(k)||{n:0,p:0,parent:f.channel};
-          e.n++;if(f.message.ping)e.p++;unread.set(k,e);badges();
-        }
-        break;
-      }
-      if(f.message&&f.cmd==="message_new")setTyper(f.message.user,0);
-      if(f.message){upsert(f.message);if(f.cmd==="message_new"&&document.hasFocus()&&f.message.user!==(me&&me.username))ack()}
-      break}
-    case "typing":
-      if((f.thread_id||f.channel)===key()&&(!me||f.user!==me.username))setTyper(f.user,f.duration==null?6000:f.duration);
-      break;
-    case "unreads_update":
-      clearTimeout(unrT);unrT=setTimeout(loadUnreads,200);break;
-    case "message_delete":
-      if((f.thread_id||f.channel)===key())drop(f.id);
-      break;
-    default:
-      if(/react/.test(f.cmd||"")&&(f.thread_id||f.channel)===key())refetch();
-      else if(f.cmd==="thread_create"||f.cmd==="thread_delete"||f.cmd==="thread_update"){if(f.channel===chan||(f.thread&&f.thread.parent_channel===chan))loadThreads()}
-      else if(f.cmd==="user_update"&&f.user)users.set(f.user.username,f.user);
-  }
-}
+                ml.addEventListener("click", (e) => {
+                    const x = e.target.closest(".x");
+                    if (x) {
+                        const d = x.closest(".m"),
+                            old = d.querySelector(".raw");
+                        if (old) {
+                            old.remove();
+                            return;
+                        }
+                        const m = msgs.find((q) => q.id === x.dataset.id);
+                        if (!m) return;
+                        d.append(el("pre", "raw", JSON.stringify(m, null, 2)));
+                        return;
+                    }
+                    const b = e.target.closest(".r");
+                    if (!b) return;
+                    replyTo = b.dataset.id;
+                    rt.textContent = "Replying to " + b.dataset.u;
+                    rb.hidden = false;
+                    inp.focus();
+                });
+                function clearReply() {
+                    replyTo = null;
+                    rb.hidden = true;
+                }
+                $("rc").onclick = clearReply;
+                $("f").onsubmit = (e) => {
+                    e.preventDefault();
+                    if (busy) return;
+                    const t = inp.value;
+                    if ((!t.trim() && !files.length) || !authed || !key())
+                        return;
+                    const m = { cmd: "message_new", content: t };
+                    if (thread) m.thread_id = thread;
+                    else m.channel = chan;
+                    if (replyTo) m.reply_to = replyTo;
+                    busy = true;
+                    if (!files.length) {
+                        inp.value = "";
+                        clearReply();
+                    }
+                    (async () => {
+                        try {
+                            if (files.length) {
+                                status("uploading...");
+                                m.attachments = await uploadAll(files.slice());
+                                inp.value = "";
+                                files = [];
+                                drawFiles();
+                                clearReply();
+                                status(me ? me.username : "online");
+                            }
+                            if (canSign()) {
+                                try {
+                                    Object.assign(
+                                        m,
+                                        await signMsg(t, m.attachments || []),
+                                    );
+                                } catch (err) {
+                                    noSign = true;
+                                    si.textContent = "Enable signing";
+                                    si.hidden = false;
+                                    status(
+                                        "sent unsigned: " +
+                                            ((err && err.message) ||
+                                                "signing unavailable"),
+                                    );
+                                }
+                            }
+                            send(m, (r) => {
+                                if (r.cmd === "error") status(r.val);
+                            });
+                            if (lastTyp) {
+                                lastTyp = 0;
+                                sendTyping(0);
+                            }
+                        } catch (err) {
+                            status(
+                                "upload failed, draft kept: " +
+                                    ((err && err.message) || err),
+                            );
+                        } finally {
+                            busy = false;
+                        }
+                    })();
+                };
 
+                function drawTyping() {
+                    const a = [...typers.keys()].map((u) => {
+                        const x = users.get(u);
+                        return (x && x.nickname) || u;
+                    });
+                    ty.textContent = !a.length
+                        ? ""
+                        : a.length < 4
+                          ? a.join(", ") +
+                            (a.length > 1 ? " are typing..." : " is typing...")
+                          : "several people are typing...";
+                }
+                function setTyper(u, ms) {
+                    const o = typers.get(u);
+                    if (o) clearTimeout(o);
+                    if (ms > 0)
+                        typers.set(
+                            u,
+                            setTimeout(() => {
+                                typers.delete(u);
+                                drawTyping();
+                            }, ms),
+                        );
+                    else typers.delete(u);
+                    drawTyping();
+                }
+                function clearTyping() {
+                    for (const t of typers.values()) clearTimeout(t);
+                    typers.clear();
+                    ty.textContent = "";
+                }
+                function sendTyping(d) {
+                    const m = { cmd: "typing", duration: d };
+                    if (thread) m.thread_id = thread;
+                    else m.channel = chan;
+                    send(m);
+                }
+                inp.addEventListener("input", () => {
+                    if (!authed || !key()) return;
+                    const c = channels.find((x) => x.name === chan);
+                    if (!c || (c.type === "forum" && !thread)) return;
+                    if (!inp.value) {
+                        if (lastTyp) {
+                            lastTyp = 0;
+                            sendTyping(0);
+                        }
+                        return;
+                    }
+                    const n = Date.now();
+                    if (n - lastTyp < 4000) return;
+                    lastTyp = n;
+                    sendTyping(6000);
+                });
 
-const key=()=>thread||chan;
-function chCount(c){
-  let n=0,p=0;
-  const e=unread.get(c.name);if(e){n+=e.n;p+=e.p}
-  if(c.type==="forum")for(const [k,v] of unread)if(k.startsWith("thread/")&&v.parent===c.name){n+=v.n;p+=v.p}
-  return [n,p];
-}
-function chLabel(c){
-  const [n,p]=chCount(c);
-  return (c.type==="forum"?"[forum] ":c.type==="voice"?"(voice) ":"#")+c.name+(n?" ("+n+(p?" @"+p:"")+")":"");
-}
-function badges(){for(const o of ch.options){const c=channels.find(x=>x.name===o.value);if(c)o.textContent=chLabel(c)}}
-function loadUnreads(){
-  send({cmd:"unreads_get"},r=>{
-    const v=r.val||r.unreads||{};const m=new Map();
-    for(const k in v){const e=v[k];if(e&&typeof e==="object"&&("unread_count" in e||"ping_count" in e))m.set(k,{n:e.unread_count|0,p:e.ping_count|0,parent:e.parent_channel})}
-    unread=m;badges();
-  });
-}
-function ack(){
-  const k=thread?"thread/"+thread:chan;if(!k)return;
-  if(unread.has(k)){unread.delete(k);badges()}
-  const m={cmd:"unreads_ack"};if(thread)m.thread_id=thread;else m.channel=chan;
-  send(m,()=>{});
-}
-function drawChannels(){
-  const f=document.createDocumentFragment();
-  for(const c of channels){const o=document.createElement("option");o.value=c.name;o.textContent=chLabel(c);f.append(o)}
-  ch.replaceChildren(f);if(chan)ch.value=chan;else ch.selectedIndex=-1;
-}
-function drawThreads(){
-  const c=channels.find(x=>x.name===chan);
-  th.hidden=!(c&&c.type==="forum");
-  const f=document.createDocumentFragment();
-  for(const t of threads){const o=document.createElement("option");o.value=t.id;o.textContent=t.name;f.append(o)}
-  th.replaceChildren(f);if(thread)th.value=thread;else th.selectedIndex=-1;
-}
-function pickChannel(name){
-  if(!channels.length)return;
-  const c=channels.find(x=>x.name===name)||channels.find(x=>x.type==="text")||channels[0];
-  chan=c.name;thread=null;ch.value=chan;ls.set("oc_ch_"+cur.url,chan);
-  clearReply();clearConv();threads=[];drawThreads();
-  if(c.type==="forum"){loadThreads()}else loadMsgs();
-}
-function loadThreads(){
-  const g=gen,c=chan;
-  send({cmd:"threads_get",channel:c,limit:50},r=>{
-    if(g!==gen||c!==chan)return;
-    threads=r.val||[];drawThreads();
-    if(!thread&&threads.length){thread=threads[0].id;th.value=thread;loadMsgs()}
-  });
-}
-ch.onchange=()=>pickChannel(ch.value);
-th.onchange=()=>{thread=th.value;clearReply();clearConv();loadMsgs()};
+                const fmtSize = (n) =>
+                    n < 1024
+                        ? n + " B"
+                        : n < 1048576
+                          ? (n / 1024).toFixed(1) + " KB"
+                          : (n / 1048576).toFixed(1) + " MB";
+                function typeOk(mime, list) {
+                    if (!list || !list.length) return true;
+                    mime = (mime || "application/octet-stream")
+                        .split(";")[0]
+                        .trim()
+                        .toLowerCase();
+                    return list.some(
+                        (t) =>
+                            t === "*" ||
+                            t === "*/*" ||
+                            t === mime ||
+                            (t.endsWith("/*") &&
+                                mime.startsWith(t.slice(0, -1))),
+                    );
+                }
+                function drawFiles() {
+                    pf.hidden = !files.length;
+                    const f = document.createDocumentFragment();
+                    files.forEach((x, i) => {
+                        const s = el(
+                            "span",
+                            null,
+                            x.name + " (" + fmtSize(x.size) + ") ",
+                        );
+                        const b = el("button", null, "x");
+                        b.type = "button";
+                        b.dataset.i = i;
+                        s.append(b);
+                        f.append(s);
+                    });
+                    pf.replaceChildren(f);
+                }
+                at.onclick = () => fi.click();
+                fi.onchange = () => {
+                    const pol = (hs && hs.attachments) || {};
+                    for (const x of fi.files) {
+                        if (pol.max_size > 0 && x.size > pol.max_size) {
+                            status(
+                                x.name + " is over " + fmtSize(pol.max_size),
+                            );
+                            continue;
+                        }
+                        if (!typeOk(x.type, pol.allowed_types)) {
+                            status(
+                                x.name +
+                                    ": type " +
+                                    (x.type || "unknown") +
+                                    " not allowed",
+                            );
+                            continue;
+                        }
+                        files.push(x);
+                    }
+                    fi.value = "";
+                    drawFiles();
+                };
+                pf.addEventListener("click", (e) => {
+                    const b = e.target.closest("button");
+                    if (!b) return;
+                    files.splice(+b.dataset.i, 1);
+                    drawFiles();
+                });
+                async function uploadAuth() {
+                    if (
+                        me &&
+                        me.cracked &&
+                        localTok &&
+                        hs.capabilities &&
+                        hs.capabilities.includes("local_attachment_auth_v1")
+                    )
+                        return { local: localTok };
+                    if (!token) throw new Error("not signed in");
+                    const key = hs.validator_key;
+                    const r = await fetch(
+                        API +
+                            "/generate_validator?auth=" +
+                            encodeURIComponent(token) +
+                            "&key=" +
+                            encodeURIComponent(key),
+                    );
+                    if (!r.ok) throw new Error("Rotur validator failed");
+                    const { validator } = await r.json();
+                    return { key, validator };
+                }
+                async function uploadOne(file) {
+                    const a = await uploadAuth(),
+                        fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("name", file.name);
+                    fd.append(
+                        "mime_type",
+                        file.type || "application/octet-stream",
+                    );
+                    fd.append("expires_in_days", "7");
+                    if (a.local) fd.append("local_upload_token", a.local);
+                    else {
+                        fd.append("validator_key", a.key);
+                        fd.append("validator", a.validator);
+                    }
+                    const r = await fetch(
+                        new URL("/attachments/upload", cur.url),
+                        { method: "POST", body: fd },
+                    );
+                    let b = {};
+                    try {
+                        b = await r.json();
+                    } catch {}
+                    if (!r.ok)
+                        throw new Error(
+                            file.name + ": " + (b.error || "HTTP " + r.status),
+                        );
+                    return b.attachment;
+                }
+                async function uploadAll(list) {
+                    const out = [];
+                    for (let i = 0; i < list.length; i++) {
+                        status(
+                            "uploading " + (i + 1) + "/" + list.length + "...",
+                        );
+                        out.push(await uploadOne(list[i]));
+                    }
+                    return out;
+                }
 
+                const canSign = () =>
+                    !noSign &&
+                    hs &&
+                    me &&
+                    !me.cracked &&
+                    hs.signing_url &&
+                    hs.capabilities &&
+                    hs.capabilities.includes("message_signatures_v1");
+                const serverNow = () =>
+                    clock
+                        ? clock.srv + (performance.now() - clock.perf) / 1000
+                        : Date.now() / 1000;
+                function syncClock() {
+                    const t0 = Date.now() / 1000;
+                    send({ cmd: "ping", sent_at: t0 }, (r) => {
+                        const t3 = Date.now() / 1000,
+                            a = r.server_received_at,
+                            b = r.server_sent_at;
+                        if (a == null || b == null) return;
+                        const rtt = t3 - t0 - (b - a);
+                        if (rtt < 0 || rtt > 2) return;
+                        clock = {
+                            srv: t3 + (a - t0 + (b - t3)) / 2,
+                            perf: performance.now(),
+                        };
+                    });
+                }
+                function canon(v) {
+                    if (Array.isArray(v)) return v.map(canon);
+                    if (v && typeof v === "object") {
+                        const o = {};
+                        for (const k of Object.keys(v).sort()) {
+                            if (v[k] !== undefined) o[k] = canon(v[k]);
+                        }
+                        return o;
+                    }
+                    return v;
+                }
+                const sbytes = (v) =>
+                    new TextEncoder().encode(JSON.stringify(canon(v)));
+                async function getSdk() {
+                    if (sdk && sdk.t === token) return sdk.r;
+                    let m;
+                    try {
+                        m =
+                            await import("https://cdn.jsdelivr.net/npm/rotur-sdk/+esm");
+                    } catch {
+                        m = await import("https://esm.sh/rotur-sdk");
+                    }
+                    const r = new m.Rotur({ token });
+                    sdk = { t: token, r };
+                    return r;
+                }
+                async function signMsg(content, atts) {
+                    const r = await getSdk(),
+                        ts = serverNow(),
+                        url = hs.signing_url;
+                    const proof = await r.signing.sign((aid) => [
+                        "originchats.message.v1",
+                        aid,
+                        content,
+                        atts,
+                        ts,
+                        url,
+                    ]);
+                    return { timestamp: ts, ...proof };
+                }
+                function b64u(s) {
+                    s = s.replace(/-/g, "+").replace(/_/g, "/");
+                    while (s.length % 4) s += "=";
+                    const b = atob(s),
+                        u = new Uint8Array(b.length);
+                    for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+                    return u;
+                }
+                function getKey(a, k) {
+                    const id = a + "/" + k;
+                    let p = keyCache.get(id);
+                    if (!p) {
+                        p = (async () => {
+                            const r = await fetch(
+                                API +
+                                    "/v2/users/" +
+                                    encodeURIComponent(a) +
+                                    "/signing-keys/" +
+                                    encodeURIComponent(k),
+                            );
+                            if (!r.ok)
+                                throw new Error("key lookup " + r.status);
+                            const j = await r.json(),
+                                o = j.signing_key || j.key || j;
+                            if (
+                                o.user_id !== a ||
+                                o.key_id !== k ||
+                                o.algorithm !== "Ed25519"
+                            )
+                                return null;
+                            return crypto.subtle.importKey(
+                                "jwk",
+                                o.public_key_jwk,
+                                { name: "Ed25519" },
+                                false,
+                                ["verify"],
+                            );
+                        })();
+                        keyCache.set(id, p);
+                        p.catch(() => keyCache.delete(id));
+                    }
+                    return p;
+                }
+                async function verify(m) {
+                    if (!(
+                        m.author_id &&
+                        m.key_id &&
+                        m.signature &&
+                        m.signed_at &&
+                        hs &&
+                        hs.signing_url
+                    ))
+                        return "unsigned";
+                    if (
+                        Math.abs(m.signed_at - (m.edited_at || m.timestamp)) >
+                        300
+                    )
+                        return "invalid";
+                    try {
+                        const key = await getKey(m.author_id, m.key_id);
+                        if (!key) return "invalid";
+                        const ok = await crypto.subtle.verify(
+                            "Ed25519",
+                            key,
+                            b64u(m.signature),
+                            sbytes([
+                                "originchats.message.v1",
+                                m.author_id,
+                                m.content || "",
+                                m.attachments || [],
+                                m.signed_at,
+                                hs.signing_url,
+                            ]),
+                        );
+                        return ok ? "verified" : "invalid";
+                    } catch {
+                        return "unavailable";
+                    }
+                }
 
-function clearConv(){clearTyping();msgs=[];nodes.clear();ml.replaceChildren()}
-function loadMsgs(){
-  const g=gen,k=key();
-  const req={cmd:"messages_get",limit:LIMIT};
-  if(thread)req.thread_id=thread;else req.channel=chan;
-  send(req,r=>{
-    if(g!==gen||k!==key())return;
-    if(r.cmd==="error"){status(r.val);return}
-    const a=(r.val||r.messages||[]).slice(-LIMIT);
-    msgs=a;nodes.clear();
-    const f=document.createDocumentFragment();
-    for(const m of a){const n=build(m);nodes.set(m.id,n);f.append(n)}
-    ml.replaceChildren(f);ml.scrollTop=ml.scrollHeight;ack();
-  });
-}
-function refetch(){clearTimeout(refetchT);refetchT=setTimeout(loadMsgs,150)}
-function nearBottom(){return ml.scrollHeight-ml.scrollTop-ml.clientHeight<80}
-function upsert(m){
-  const old=nodes.get(m.id),stick=nearBottom();
-  if(old){
-    const i=msgs.findIndex(x=>x.id===m.id);if(i>=0)msgs[i]=m;
-    const n=build(m);old.replaceWith(n);nodes.set(m.id,n);return;
-  }
-  msgs.push(m);const n=build(m);nodes.set(m.id,n);ml.append(n);
-  while(msgs.length>LIMIT){const o=msgs.shift();const x=nodes.get(o.id);if(x)x.remove();nodes.delete(o.id)}
-  if(stick)ml.scrollTop=ml.scrollHeight;
-}
-function drop(id){const n=nodes.get(id);if(!n)return;n.remove();nodes.delete(id);msgs=msgs.filter(m=>m.id!==id)}
-
-function colorOf(m){
-  if(m.webhook&&m.webhook.usercolor)return m.webhook.usercolor;
-  if(m.alias&&m.alias.color)return m.alias.color;
-  const u=users.get(m.user);return u&&u.color||"";
-}
-function nameOf(m){
-  if(m.alias&&m.alias.name)return m.alias.name;
-  if(m.webhook&&m.webhook.name)return m.webhook.name;
-  const u=users.get(m.user);return u&&u.nickname||m.user;
-}
-function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
-function emojiLabel(k){
-  if(!k.startsWith("originChats:"))return k;
-  const i=k.lastIndexOf("/");return ":emoji"+(i>=0?k.slice(i+1):"")+":";
-}
-function build(m){
-  const d=el("div","m");d.dataset.id=m.id;
-  const h=el("div","h");
-  const n=el("span","n",nameOf(m));const c=colorOf(m);if(c)n.style.color=c;n.dataset.u=m.user||"";
-  const sm=el("span","s");
-  h.append(n,sm,el("span","t",when(m.timestamp)+(m.edited?" (edited)":"")));
-  if(m.signature&&!m.edited_by)verify(m).then(r=>{
-    sm.textContent=r==="verified"?"":r==="invalid"?"\u26a0":r==="unavailable"?"?":"";
-    sm.title="signature: "+r;sm.className="s"+(r==="verified"?" ok":r==="invalid"?" bad":"");
-  });
-  const xb=el("button","x","raw");xb.dataset.id=m.id;
-  const rb_=el("button","r","reply");rb_.dataset.id=m.id;rb_.dataset.u=m.user||"";h.append(xb,rb_);
-  d.append(h);
-  if(m.reply_to){d.append(el("div","rp","> "+(m.reply_to.user||"")+": "+(m.reply_to.preview||"")))}
-  if(m.content)d.append(el("div","c",m.content));
-  if(m.attachments&&m.attachments.length){
-    const a=el("div","a");
-    for(const x of m.attachments){const l=el("a",null,x.name||"file");l.href=x.url;l.target="_blank";l.rel="noopener noreferrer";a.append(l)}
-    d.append(a);
-  }
-  if(m.reactions){
-    const parts=[];
-    for(const k in m.reactions){const u=m.reactions[k];if(u&&u.length)parts.push(emojiLabel(k)+" "+u.length)}
-    if(parts.length)d.append(el("div","rx",parts.join("  ")));
-  }
-  return d;
-}
-function rerenderNames(){
-  for(const n of ml.querySelectorAll(".n")){const u=users.get(n.dataset.u);if(u){if(u.color)n.style.color=u.color;if(u.nickname)n.textContent=u.nickname}}
-}
-
-
-ml.addEventListener("click",e=>{
-  const x=e.target.closest(".x");
-  if(x){
-    const d=x.closest(".m"),old=d.querySelector(".raw");
-    if(old){old.remove();return}
-    const m=msgs.find(q=>q.id===x.dataset.id);if(!m)return;
-    d.append(el("pre","raw",JSON.stringify(m,null,2)));return;
-  }
-  const b=e.target.closest(".r");if(!b)return;
-  replyTo=b.dataset.id;rt.textContent="Replying to "+b.dataset.u;rb.hidden=false;inp.focus();
-});
-function clearReply(){replyTo=null;rb.hidden=true}
-$("rc").onclick=clearReply;
-$("f").onsubmit=e=>{
-  e.preventDefault();
-  if(busy)return;
-  const t=inp.value;if((!t.trim()&&!files.length)||!authed||!key())return;
-  const m={cmd:"message_new",content:t};
-  if(thread)m.thread_id=thread;else m.channel=chan;
-  if(replyTo)m.reply_to=replyTo;
-  busy=true;
-  if(!files.length){inp.value="";clearReply()}
-  (async()=>{
-    try{
-      if(files.length){
-        status("uploading...");
-        m.attachments=await uploadAll(files.slice());
-        inp.value="";files=[];drawFiles();clearReply();
-        status(me?me.username:"online");
-      }
-      if(canSign()){
-        try{Object.assign(m,await signMsg(t,m.attachments||[]))}
-        catch(err){noSign=true;si.textContent="Enable signing";si.hidden=false;status("sent unsigned: "+(err&&err.message||"signing unavailable"))}
-      }
-      send(m,r=>{if(r.cmd==="error")status(r.val)});
-      if(lastTyp){lastTyp=0;sendTyping(0)}
-    }catch(err){status("upload failed, draft kept: "+(err&&err.message||err))}
-    finally{busy=false}
-  })();
-};
-
-
-function drawTyping(){
-  const a=[...typers.keys()].map(u=>{const x=users.get(u);return x&&x.nickname||u});
-  ty.textContent=!a.length?"":a.length<4?a.join(", ")+(a.length>1?" are typing...":" is typing..."):"several people are typing...";
-}
-function setTyper(u,ms){
-  const o=typers.get(u);if(o)clearTimeout(o);
-  if(ms>0)typers.set(u,setTimeout(()=>{typers.delete(u);drawTyping()},ms));else typers.delete(u);
-  drawTyping();
-}
-function clearTyping(){for(const t of typers.values())clearTimeout(t);typers.clear();ty.textContent=""}
-function sendTyping(d){const m={cmd:"typing",duration:d};if(thread)m.thread_id=thread;else m.channel=chan;send(m)}
-inp.addEventListener("input",()=>{
-  if(!authed||!key())return;
-  const c=channels.find(x=>x.name===chan);
-  if(!c||(c.type==="forum"&&!thread))return;
-  if(!inp.value){if(lastTyp){lastTyp=0;sendTyping(0)}return}
-  const n=Date.now();if(n-lastTyp<4000)return;
-  lastTyp=n;sendTyping(6000);
-});
-
-
-const fmtSize=n=>n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(1)+" MB";
-function typeOk(mime,list){
-  if(!list||!list.length)return true;
-  mime=(mime||"application/octet-stream").split(";")[0].trim().toLowerCase();
-  return list.some(t=>t==="*"||t==="*/*"||t===mime||(t.endsWith("/*")&&mime.startsWith(t.slice(0,-1))));
-}
-function drawFiles(){
-  pf.hidden=!files.length;
-  const f=document.createDocumentFragment();
-  files.forEach((x,i)=>{
-    const s=el("span",null,x.name+" ("+fmtSize(x.size)+") ");
-    const b=el("button",null,"x");b.type="button";b.dataset.i=i;s.append(b);f.append(s);
-  });
-  pf.replaceChildren(f);
-}
-at.onclick=()=>fi.click();
-fi.onchange=()=>{
-  const pol=(hs&&hs.attachments)||{};
-  for(const x of fi.files){
-    if(pol.max_size>0&&x.size>pol.max_size){status(x.name+" is over "+fmtSize(pol.max_size));continue}
-    if(!typeOk(x.type,pol.allowed_types)){status(x.name+": type "+(x.type||"unknown")+" not allowed");continue}
-    files.push(x);
-  }
-  fi.value="";drawFiles();
-};
-pf.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;files.splice(+b.dataset.i,1);drawFiles()});
-async function uploadAuth(){
-  if(me&&me.cracked&&localTok&&hs.capabilities&&hs.capabilities.includes("local_attachment_auth_v1"))return {local:localTok};
-  if(!token)throw new Error("not signed in");
-  const key=hs.validator_key;
-  const r=await fetch(API+"/generate_validator?auth="+encodeURIComponent(token)+"&key="+encodeURIComponent(key));
-  if(!r.ok)throw new Error("Rotur validator failed");
-  const {validator}=await r.json();
-  return {key,validator};
-}
-async function uploadOne(file){
-  const a=await uploadAuth(),fd=new FormData();
-  fd.append("file",file);fd.append("name",file.name);
-  fd.append("mime_type",file.type||"application/octet-stream");
-  fd.append("expires_in_days","7");
-  if(a.local)fd.append("local_upload_token",a.local);
-  else{fd.append("validator_key",a.key);fd.append("validator",a.validator)}
-  const r=await fetch(new URL("/attachments/upload",cur.url),{method:"POST",body:fd});
-  let b={};try{b=await r.json()}catch{}
-  if(!r.ok)throw new Error(file.name+": "+(b.error||"HTTP "+r.status));
-  return b.attachment;
-}
-async function uploadAll(list){
-  const out=[];
-  for(let i=0;i<list.length;i++){status("uploading "+(i+1)+"/"+list.length+"...");out.push(await uploadOne(list[i]))}
-  return out;
-}
-
-const canSign=()=>!noSign&&hs&&me&&!me.cracked&&hs.signing_url&&hs.capabilities&&hs.capabilities.includes("message_signatures_v1");
-const serverNow=()=>clock?clock.srv+(performance.now()-clock.perf)/1000:Date.now()/1000;
-function syncClock(){
-  const t0=Date.now()/1000;
-  send({cmd:"ping",sent_at:t0},r=>{
-    const t3=Date.now()/1000,a=r.server_received_at,b=r.server_sent_at;
-    if(a==null||b==null)return;
-    const rtt=(t3-t0)-(b-a);if(rtt<0||rtt>2)return;
-    clock={srv:t3+((a-t0)+(b-t3))/2,perf:performance.now()};
-  });
-}
-function canon(v){
-  if(Array.isArray(v))return v.map(canon);
-  if(v&&typeof v==="object"){const o={};for(const k of Object.keys(v).sort()){if(v[k]!==undefined)o[k]=canon(v[k])}return o}
-  return v;
-}
-const sbytes=v=>new TextEncoder().encode(JSON.stringify(canon(v)));
-async function getSdk(){
-  if(sdk&&sdk.t===token)return sdk.r;
-  let m;
-  try{m=await import("https://cdn.jsdelivr.net/npm/rotur-sdk/+esm")}
-  catch{m=await import("https://esm.sh/rotur-sdk")}
-  const r=new m.Rotur({token});sdk={t:token,r};return r;
-}
-async function signMsg(content,atts){
-  const r=await getSdk(),ts=serverNow(),url=hs.signing_url;
-  const proof=await r.signing.sign(aid=>["originchats.message.v1",aid,content,atts,ts,url]);
-  return {timestamp:ts,...proof};
-}
-function b64u(s){
-  s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";
-  const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;
-}
-function getKey(a,k){
-  const id=a+"/"+k;let p=keyCache.get(id);
-  if(!p){
-    p=(async()=>{
-      const r=await fetch(API+"/v2/users/"+encodeURIComponent(a)+"/signing-keys/"+encodeURIComponent(k));
-      if(!r.ok)throw new Error("key lookup "+r.status);
-      const j=await r.json(),o=j.signing_key||j.key||j;
-      if(o.user_id!==a||o.key_id!==k||o.algorithm!=="Ed25519")return null;
-      return crypto.subtle.importKey("jwk",o.public_key_jwk,{name:"Ed25519"},false,["verify"]);
-    })();
-    keyCache.set(id,p);p.catch(()=>keyCache.delete(id));
-  }
-  return p;
-}
-async function verify(m){
-  if(!(m.author_id&&m.key_id&&m.signature&&m.signed_at&&hs&&hs.signing_url))return "unsigned";
-  if(Math.abs(m.signed_at-(m.edited_at||m.timestamp))>300)return "invalid";
-  try{
-    const key=await getKey(m.author_id,m.key_id);
-    if(!key)return "invalid";
-    const ok=await crypto.subtle.verify("Ed25519",key,b64u(m.signature),
-      sbytes(["originchats.message.v1",m.author_id,m.content||"",m.attachments||[],m.signed_at,hs.signing_url]));
-    return ok?"verified":"invalid";
-  }catch{return "unavailable"}
-}
-
-
-drawServers();
-const last=ls.get("oc_last",null);
-const first=servers.find(s=>s.url===last)||servers[0];
-if(first)connect(first);else status("add a server to begin");
-})();
-</script>
-</body>
+                drawServers();
+                const last = ls.get("oc_last", null);
+                const first = servers.find((s) => s.url === last) || servers[0];
+                if (first) connect(first);
+                else status("add a server to begin");
+            })();
+        </script>
+    </body>
 </html>
