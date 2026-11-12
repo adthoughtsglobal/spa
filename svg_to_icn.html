@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SVG → ICN Converter</title>
+<style>
+:root{--bg:#f6f6f3;--card:#fff;--ink:#1c1c1a;--mute:#6b6b66;--line:#dcdcd6;--acc:#2f5bea;--accink:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#201f1e;--ink:#ecebe6;--mute:#9a9892;--line:#37352f;--acc:#7b9bff;--accink:#10131f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615;--card:#201f1e;--ink:#ecebe6;--mute:#9a9892;--line:#37352f;--acc:#7b9bff;--accink:#10131f;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:14px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+p.sub{margin:0 0 18px;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--mute);cursor:pointer}
+.drop.over{border-color:var(--acc);color:var(--ink)}
+button,select,input,textarea{font:inherit;color:var(--ink)}
+button{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+button:hover{filter:brightness(.96)}
+input[type=number],select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px;width:80px}
+select{width:auto}
+.opts{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin-top:12px}
+.opts label{display:flex;flex-direction:column;font-size:12px;color:var(--mute);gap:3px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.prev{overflow:auto;border-radius:8px;border:1px solid var(--line);text-align:center;background:var(--bg)}
+canvas{max-width:100%;height:auto;display:block;margin:0 auto}
+textarea{width:100%;height:300px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;font:12.5px/1.4 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.el{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.el:first-child{border-top:0}.el.off{opacity:.45}
+.el .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.el .nm small{color:var(--mute)}
+.el input[type=color]{width:32px;height:28px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}
+.el input[type=number]{width:56px}
+.list{max-height:420px;overflow:auto}
+.msg{color:var(--mute);font-size:13px;margin-top:8px}.err{color:#d33}
+textarea.paste{height:70px}
+</style>
+</head>
+<body>
+<main>
+<h1>SVG → ICN</h1>
+<p class="sub">Upload an SVG, get ICN drawing commands. Edit elements afterwards.</p>
+
+<div class="card">
+  <div class="drop" id="drop">Drop an SVG here or click to choose<input type="file" id="file" accept=".svg,image/svg+xml" hidden></div>
+  <div class="row"><button id="sample">Load sample</button><button id="pasteBtn">Convert pasted SVG</button></div>
+  <textarea class="paste" id="paste" placeholder="…or paste SVG markup here"></textarea>
+  <div class="opts">
+    <label>Scale<input type="number" id="scale" value="1" step="0.1" min="0.01"></label>
+    <label>Decimals<input type="number" id="dec" value="1" min="0" max="4"></label>
+    <label>Origin<select id="origin"><option value="tl">Top-left</option><option value="c">Centre</option></select></label>
+    <label>Preview bg<input type="color" id="bg" value="#ffffff" style="width:48px;height:28px;padding:0"></label>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<div class="grid">
+  <div class="card"><h2>Preview</h2><div class="prev"><canvas id="cv" width="300" height="200"></canvas></div></div>
+  <div class="card"><h2>ICN output</h2><textarea id="out" spellcheck="false" readonly></textarea>
+    <div class="row"><button class="pri" id="copy">Copy</button><button id="dl">Download .icn</button><span class="msg" id="count"></span></div></div>
+</div>
+
+<div class="card"><h2>Elements</h2><div class="list" id="list"><div class="msg">Nothing loaded yet.</div></div>
+<div class="msg">Fill = <code>rect</code> / <code>tri</code> / <code>dot</code>; stroke = <code>line</code> / <code>cont</code> / <code>curve</code> / <code>square</code> / <code>ellipse</code>. Assumes <code>dot</code> size comes from <code>w</code>, shapes are positioned by their centre where applicable, and curves are converted to quadratics. Gradients, holes in filled paths, clip paths and <code>&lt;use&gt;</code> are not supported.</div></div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+let els=[],vb={x:0,y:0,w:100,h:100},skipped=0,fname='drawing';
+
+/* ---------- colour helpers ---------- */
+const hx=(r,g,b)=>'#'+[r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+const short=h=>/^#(.)\1(.)\2(.)\3$/.test(h)?'#'+h[1]+h[3]+h[5]:h;
+function css(s){const m=(s||'').match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(/[ ,\/]+/).map(Number);return hx(p[0],p[1],p[2])}
+
+/* ---------- path parsing ---------- */
+const NUM=/[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g;
+function arcPts(x1,y1,rx,ry,phi,fa,fs,x2,y2){
+  if(!rx||!ry)return[[x2,y2]];rx=Math.abs(rx);ry=Math.abs(ry);
+  const p=phi*Math.PI/180,cp=Math.cos(p),sp=Math.sin(p),dx=(x1-x2)/2,dy=(y1-y2)/2,a=cp*dx+sp*dy,b=-sp*dx+cp*dy;
+  const l=a*a/(rx*rx)+b*b/(ry*ry);if(l>1){rx*=Math.sqrt(l);ry*=Math.sqrt(l)}
+  const nu=rx*rx*ry*ry-rx*rx*b*b-ry*ry*a*a,de=rx*rx*b*b+ry*ry*a*a;
+  let co=Math.sqrt(Math.max(0,nu/de));if(fa===fs)co=-co;
+  const cxp=co*rx*b/ry,cyp=-co*ry*a/rx,cx=cp*cxp-sp*cyp+(x1+x2)/2,cy=sp*cxp+cp*cyp+(y1+y2)/2;
+  const ang=(ux,uy,vx,vy)=>Math.atan2(ux*vy-uy*vx,ux*vx+uy*vy);
+  const t1=ang(1,0,(a-cxp)/rx,(b-cyp)/ry);let dt=ang((a-cxp)/rx,(b-cyp)/ry,(-a-cxp)/rx,(-b-cyp)/ry);
+  if(!fs&&dt>0)dt-=2*Math.PI;if(fs&&dt<0)dt+=2*Math.PI;
+  const N=Math.max(4,Math.ceil(Math.abs(dt)/(Math.PI/12))),o=[];
+  for(let i=1;i<=N;i++){const t=t1+dt*i/N;o.push([cp*rx*Math.cos(t)-sp*ry*Math.sin(t)+cx,sp*rx*Math.cos(t)+cp*ry*Math.sin(t)+cy])}
+  return o;
+}
+function parsePath(d){
+  const out=[];let cx=0,cy=0,sx=0,sy=0,lc=null,lq=null,m;const re=/([a-zA-Z])([^a-zA-Z]*)/g;
+  while(m=re.exec(d)){
+    const n=(m[2].match(NUM)||[]).map(Number);const rel=m[1]===m[1].toLowerCase();let C=m[1].toUpperCase();
+    let cnt={M:2,L:2,H:1,V:1,C:6,S:4,Q:4,T:2,A:7,Z:0}[C];if(cnt===undefined)continue;
+    if(C==='Z'){out.push({t:'Z'});cx=sx;cy=sy;lc=lq=null;continue}
+    for(let i=0;i+cnt<=n.length;i+=cnt){
+      const a=n.slice(i,i+cnt),ox=rel?cx:0,oy=rel?cy:0;let nc=null,nq=null;
+      if(C==='M'){cx=a[0]+ox;cy=a[1]+oy;sx=cx;sy=cy;out.push({t:'M',p:[cx,cy]});C='L';cnt=2}
+      else if(C==='L'){cx=a[0]+ox;cy=a[1]+oy;out.push({t:'L',p:[cx,cy]})}
+      else if(C==='H'){cx=a[0]+ox;out.push({t:'L',p:[cx,cy]})}
+      else if(C==='V'){cy=a[0]+oy;out.push({t:'L',p:[cx,cy]})}
+      else if(C==='C'||C==='S'){
+        const c1=C==='C'?[a[0]+ox,a[1]+oy]:(lc?[2*cx-lc[0],2*cy-lc[1]]:[cx,cy]),k=C==='C'?2:0;
+        const p=[...c1,a[k]+ox,a[k+1]+oy,a[k+2]+ox,a[k+3]+oy];nc=[p[2],p[3]];cx=p[4];cy=p[5];out.push({t:'C',p})}
+      else if(C==='Q'||C==='T'){
+        const c=C==='Q'?[a[0]+ox,a[1]+oy]:(lq?[2*cx-lq[0],2*cy-lq[1]]:[cx,cy]),k=C==='Q'?2:0;
+        nq=c;const p=[...c,a[k]+ox,a[k+1]+oy];cx=p[2];cy=p[3];out.push({t:'Q',p})}
+      else if(C==='A'){
+        const ex=a[5]+ox,ey=a[6]+oy;for(const q of arcPts(cx,cy,a[0],a[1],a[2],a[3],a[4],ex,ey))out.push({t:'L',p:q});cx=ex;cy=ey}
+      lc=nc;lq=nq;
+    }
+  }
+  return out;
+}
+function subs(segs){const r=[];let c=null;for(const s of segs){if(s.t==='M'){c=[s];r.push(c)}else if(c){c.push(s);if(s.t==='Z'){c=[{t:'M',p:c[0].p}];r.push(c)}}}return r.filter(x=>x.length>1)}
+function flat(sub){const pts=[];let cur;
+  for(const s of sub){
+    if(s.t==='M'||s.t==='L'){pts.push(s.p);cur=s.p}
+    else if(s.t==='C'){const p=s.p;for(let i=1;i<=12;i++){const t=i/12,u=1-t;pts.push([0,1].map(k=>u*u*u*cur[k]+3*u*u*t*p[k]+3*u*t*t*p[2+k]+t*t*t*p[4+k]))}cur=[p[4],p[5]]}
+    else if(s.t==='Q'){const p=s.p;for(let i=1;i<=8;i++){const t=i/8,u=1-t;pts.push([0,1].map(k=>u*u*cur[k]+2*u*t*p[k]+t*t*p[2+k]))}cur=[p[2],p[3]]}
+  }return pts}
+function cubicQuads(p0,p){
+  const pts=[p0,[p[0],p[1]],[p[2],p[3]],[p[4],p[5]]],out=[];
+  const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
+  const split=(c,d)=>{if(d===0){out.push(c);return}
+    const [a,b,e,f]=c,ab=mid(a,b),be=mid(b,e),ef=mid(e,f),abe=mid(ab,be),bef=mid(be,ef),m=mid(abe,bef);
+    split([a,ab,abe,m],d-1);split([m,bef,ef,f],d-1)};
+  split(pts,2);
+  return out.map(([a,b,c,d])=>[a[0],a[1],d[0],d[1],(3*(b[0]+c[0])-(a[0]+d[0]))/4,(3*(b[1]+c[1])-(a[1]+d[1]))/4]);
+}
+function strokeOps(sub){
+  const ops=[];let cur=null,st=null,first=true;
+  for(const s of sub){
+    if(s.t==='M'){cur=s.p;st=s.p;first=true}
+    else if(s.t==='L'){ops.push(first?{n:'line',a:[...cur,...s.p]}:{n:'cont',a:[...s.p]});first=false;cur=s.p}
+    else if(s.t==='Z'){if(cur[0]!==st[0]||cur[1]!==st[1])ops.push(first?{n:'line',a:[...cur,...st]}:{n:'cont',a:[...st]});cur=st;first=false}
+    else{const qs=s.t==='Q'?[[...cur,s.p[2],s.p[3],s.p[0],s.p[1]]]:cubicQuads(cur,s.p);
+      qs.forEach(q=>ops.push({n:'curve',a:q}));cur=s.t==='Q'?[s.p[2],s.p[3]]:[s.p[4],s.p[5]];first=true}
+  }return ops}
+function triangulate(raw){
+  const P=raw.filter((p,i)=>{const q=raw[(i+1)%raw.length];return Math.abs(p[0]-q[0])>1e-9||Math.abs(p[1]-q[1])>1e-9});
+  const n=P.length;if(n<3)return[];
+  let ar=0;for(let i=0;i<n;i++){const a=P[i],b=P[(i+1)%n];ar+=a[0]*b[1]-b[0]*a[1]}
+  const idx=[...Array(n).keys()];if(ar<0)idx.reverse();
+  const X=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),out=[];
+  while(idx.length>3){
+    let found=false;const L=idx.length;
+    for(let i=0;i<L;i++){
+      const a=P[idx[(i+L-1)%L]],b=P[idx[i]],c=P[idx[(i+1)%L]];
+      if(X(a,b,c)<=1e-9)continue;
+      if(idx.some(j=>{const p=P[j];return p!==a&&p!==b&&p!==c&&X(a,b,p)>=0&&X(b,c,p)>=0&&X(c,a,p)>=0}))continue;
+      out.push({n:'tri',a:[...a,...b,...c]});idx.splice(i,1);found=true;break}
+    if(!found){for(let i=1;i<idx.length-1;i++)out.push({n:'tri',a:[...P[idx[0]],...P[idx[i]],...P[idx[i+1]]]});return out}
+  }
+  if(idx.length===3)out.push({n:'tri',a:[...P[idx[0]],...P[idx[1]],...P[idx[2]]]});
+  return out}
+
+/* ---------- SVG → elements ---------- */
+function convert(text){
+  const doc=new DOMParser().parseFromString(text,'image/svg+xml'),svg=doc.documentElement;
+  if(svg.nodeName!=='svg'||doc.querySelector('parsererror'))throw new Error('That does not look like a valid SVG.');
+  const host=document.createElement('div');host.style.cssText='position:absolute;left:-99999px;top:0;visibility:hidden;width:800px';
+  const live=document.importNode(svg,true);host.appendChild(live);document.body.appendChild(host);
+  els=[];skipped=0;
+  try{
+    const v=live.viewBox.baseVal;
+    vb=v&&v.width?{x:v.x,y:v.y,w:v.width,h:v.height}:{x:0,y:0,w:parseFloat(live.getAttribute('width'))||300,h:parseFloat(live.getAttribute('height'))||150};
+    const inv=live.getScreenCTM().inverse();
+    live.querySelectorAll('*').forEach(el=>{
+      const tag=el.tagName.toLowerCase();
+      if(tag==='use'||tag==='image'||tag==='text')skipped++;
+      if(!['path','rect','circle','ellipse','line','polyline','polygon'].includes(tag))return;
+      if(el.closest('defs,clipPath,mask,pattern,symbol,marker'))return;
+      const cs=getComputedStyle(el);if(cs.display==='none'||cs.visibility==='hidden')return;
+      const r=inv.multiply(el.getScreenCTM()),M=[r.a,r.b,r.c,r.d,r.e,r.f];
+      const P=(x,y)=>[M[0]*x+M[2]*y+M[4],M[1]*x+M[3]*y+M[5]],k=Math.sqrt(Math.abs(M[0]*M[3]-M[1]*M[2]));
+      let fill=cs.fill.startsWith('url')?null:css(cs.fill),stroke=cs.stroke.startsWith('url')?null:css(cs.stroke);
+      if(cs.fill.startsWith('url')||cs.stroke.startsWith('url'))skipped++;
+      if(tag==='line'||tag==='polyline'&&false)fill=null;
+      const sw=(parseFloat(cs.strokeWidth)||1)*k,id=el.id?'#'+el.id:'';
+      const num=a=>parseFloat(el.getAttribute(a))||0;
+      const add=(kind,color,width,ops)=>{if(color&&ops.length)els.push({label:tag+id,kind,color,width,ops,on:true})};
+      const axis=Math.abs(M[1])<1e-6&&Math.abs(M[2])<1e-6,conf=axis&&Math.abs(Math.abs(M[0])-Math.abs(M[3]))<1e-6;
+      let d=null;
+      if(tag==='rect'&&axis){
+        const a=P(num('x'),num('y')),b=P(num('x')+num('width'),num('y')+num('height')),x=Math.min(a[0],b[0]),y=Math.min(a[1],b[1]),w=Math.abs(b[0]-a[0]),h=Math.abs(b[1]-a[1]);
+        add('fill',fill,1,[{n:'rect',a:[x,y,w,h]}]);add('stroke',stroke,sw,[{n:'square',a:[x,y,w,h]}]);return}
+      if(tag==='circle'||tag==='ellipse'){
+        const rx=tag==='circle'?num('r'):num('rx'),ry=tag==='circle'?num('r'):num('ry'),c=P(num('cx'),num('cy'));
+        if(conf){
+          if(rx===ry)add('fill',fill,1,[{n:'dot',a:c,w:2*rx*k}]);
+          else d='M'+(num('cx')+rx)+' '+num('cy')+'A'+rx+' '+ry+' 0 1 1 '+(num('cx')-rx)+' '+num('cy')+'A'+rx+' '+ry+' 0 1 1 '+(num('cx')+rx)+' '+num('cy')+'Z';
+          if(stroke)add('stroke',stroke,sw,[{n:'ellipse',a:[...c,2*rx*k,ry/rx,0]}]);
+          if(!d)return;
+          const sg=subs(parsePath(d).map(s=>({t:s.t,p:s.p&&s.p.flatMap((v,i,a)=>i%2?[]:P(v,a[i+1]))})));
+          sg.forEach(s=>add('fill',fill,1,triangulate(flat(s))));return}
+        d='M'+(num('cx')+rx)+' '+num('cy')+'A'+rx+' '+ry+' 0 1 1 '+(num('cx')-rx)+' '+num('cy')+'A'+rx+' '+ry+' 0 1 1 '+(num('cx')+rx)+' '+num('cy')+'Z'}
+      else if(tag==='rect'){const x=num('x'),y=num('y'),w=num('width'),h=num('height');d=`M${x} ${y}L${x+w} ${y}L${x+w} ${y+h}L${x} ${y+h}Z`}
+      else if(tag==='line'){d=`M${num('x1')} ${num('y1')}L${num('x2')} ${num('y2')}`}
+      else if(tag==='polyline'||tag==='polygon'){const p=(el.getAttribute('points')||'').match(NUM)||[];d='M'+p.map((v,i)=>(i?(i%2?' ':'L'):'')+v).join('')+(tag==='polygon'?'Z':'')}
+      else d=el.getAttribute('d')||'';
+      if(!d)return;
+      const segs=parsePath(d).map(s=>({t:s.t,p:s.p&&s.p.flatMap((v,i,a)=>i%2?[]:P(v,a[i+1]))})),S=subs(segs);
+      if(fill&&tag!=='line')S.forEach(s=>add('fill',fill,1,triangulate(flat(s))));
+      if(stroke)S.forEach(s=>add('stroke',stroke,sw,strokeOps(s)));
+    });
+  }finally{host.remove()}
+  // merge consecutive entries from the same element/kind/colour so the list stays readable
+  const merged=[];for(const e of els){const l=merged[merged.length-1];
+    if(l&&l.label===e.label&&l.kind===e.kind&&l.color===e.color&&l.width===e.width&&e.kind==='fill'&&l.ops[0].n!=='dot'&&e.ops[0].n!=='dot')l.ops.push(...e.ops);else merged.push(e)}
+  els=merged;
+}
+
+/* ---------- generate ICN ---------- */
+function opt(){return{s:parseFloat($('#scale').value)||1,dec:Math.min(4,Math.max(0,+$('#dec').value||0)),c:$('#origin').value==='c'}}
+function gen(){
+  const o=opt(),ox=o.c?vb.x+vb.w/2:vb.x,oy=o.c?vb.y+vb.h/2:vb.y,s=o.s;
+  const R=v=>String(+v.toFixed(o.dec)),X=v=>(v-ox)*s,Y=v=>(v-oy)*s;
+  const lines=[],draw=[];let cc=null,cw=null;
+  for(const e of els){if(!e.on)continue;
+    const col=short(e.color);
+    for(const op of e.ops){
+      const w=Math.max(1,Math.round((op.w!==undefined?op.w:e.width)*s)),a=op.a;let q;
+      if(['line','cont','tri','curve','dot'].includes(op.n))q=a.map((v,i)=>i%2?Y(v):X(v));
+      else if(op.n==='rect'||op.n==='square')q=[X(a[0]),Y(a[1]),a[2]*s,a[3]*s];
+      else q=[X(a[0]),Y(a[1]),a[2]*s,a[3],a[4]];
+      if(col!==cc){lines.push('c '+col);cc=col}
+      if(op.n==='rect'||op.n==='tri'){/* width irrelevant */}
+      else if(w!==cw){lines.push('w '+w);cw=w}
+      lines.push(op.n+' '+q.map(R).join(' '));
+      draw.push({n:op.n,a:q.map(Number),c:e.color,w});
+    }}
+  return{text:lines.join('\n'),draw,o};
+}
+
+/* ---------- preview ---------- */
+function paint(draw,o){
+  const cv=$('#cv'),W=Math.max(1,Math.round(vb.w*o.s)),H=Math.max(1,Math.round(vb.h*o.s));cv.width=W;cv.height=H;
+  const g=cv.getContext('2d');g.fillStyle=$('#bg').value;g.fillRect(0,0,W,H);
+  g.save();if(o.c)g.translate(W/2,H/2);g.lineCap='round';g.lineJoin='round';let px=0,py=0;
+  for(const d of draw){const a=d.a;g.fillStyle=g.strokeStyle=d.c;g.lineWidth=d.w;g.beginPath();
+    switch(d.n){
+      case'line':g.moveTo(a[0],a[1]);g.lineTo(a[2],a[3]);g.stroke();px=a[2];py=a[3];break;
+      case'cont':g.moveTo(px,py);g.lineTo(a[0],a[1]);g.stroke();px=a[0];py=a[1];break;
+      case'curve':g.moveTo(a[0],a[1]);g.quadraticCurveTo(a[4],a[5],a[2],a[3]);g.stroke();px=a[2];py=a[3];break;
+      case'dot':g.arc(a[0],a[1],d.w/2,0,7);g.fill();break;
+      case'square':g.strokeRect(a[0],a[1],a[2],a[3]);break;
+      case'rect':g.fillRect(a[0],a[1],a[2],a[3]);break;
+      case'tri':g.moveTo(a[0],a[1]);g.lineTo(a[2],a[3]);g.lineTo(a[4],a[5]);g.closePath();g.fill();
+        g.lineWidth=.6;g.stroke();break; // hairline hides seams between triangles
+      case'ellipse':g.ellipse(a[0],a[1],a[2]/2,a[2]/2*a[3],a[4]*Math.PI/180,0,7);g.stroke();break;
+    }}
+  g.restore();
+}
+function update(){
+  const{text,draw,o}=gen();$('#out').value=text;paint(draw,o);
+  $('#count').textContent=els.length?`${text.split('\n').length} lines · ${els.filter(e=>e.on).length}/${els.length} elements`:'';
+}
+
+/* ---------- element list ---------- */
+function renderList(){
+  const L=$('#list');if(!els.length){L.innerHTML='<div class="msg">No drawable elements found.</div>';return}
+  L.innerHTML=els.map((e,i)=>`<div class="el ${e.on?'':'off'}" data-i="${i}">
+    <input type="color" value="${e.color}" data-f="color" title="Colour">
+    <div class="nm">${e.label} <small>${e.kind} · ${e.ops.length} cmd${e.ops.length>1?'s':''}</small></div>
+    ${e.kind==='stroke'?`<input type="number" data-f="width" value="${+e.width.toFixed(2)}" min="0.1" step="0.5" title="Stroke width">`:''}
+    <button data-a="on" title="Show/hide">${e.on?'👁':'🚫'}</button>
+    <button data-a="up" title="Move up">↑</button><button data-a="dn" title="Move down">↓</button>
+    <button data-a="del" title="Delete">✕</button></div>`).join('');
+}
+$('#list').addEventListener('input',ev=>{
+  const row=ev.target.closest('.el');if(!row)return;const e=els[+row.dataset.i],f=ev.target.dataset.f;
+  if(f==='color')e.color=ev.target.value;if(f==='width')e.width=parseFloat(ev.target.value)||1;update()});
+$('#list').addEventListener('click',ev=>{
+  const b=ev.target.closest('button');if(!b)return;const i=+b.closest('.el').dataset.i,a=b.dataset.a;
+  if(a==='on')els[i].on=!els[i].on;
+  else if(a==='del')els.splice(i,1);
+  else if(a==='up'&&i>0)[els[i-1],els[i]]=[els[i],els[i-1]];
+  else if(a==='dn'&&i<els.length-1)[els[i+1],els[i]]=[els[i],els[i+1]];
+  renderList();update()});
+
+/* ---------- io ---------- */
+function load(text,name){
+  const m=$('#msg');m.className='msg';
+  try{convert(text);fname=(name||'drawing').replace(/\.svg$/i,'');
+    m.textContent=`Converted ${els.length} element${els.length===1?'':'s'}.`+(skipped?` ${skipped} unsupported item(s) skipped (gradients, <use>, text or images).`:'');
+    renderList();update()}
+  catch(e){m.className='msg err';m.textContent=e.message}
+}
+const drop=$('#drop'),file=$('#file');
+drop.onclick=()=>file.click();
+file.onchange=()=>file.files[0]&&file.files[0].text().then(t=>load(t,file.files[0].name));
+drop.ondragover=e=>{e.preventDefault();drop.classList.add('over')};
+drop.ondragleave=()=>drop.classList.remove('over');
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove('over');const f=e.dataTransfer.files[0];f&&f.text().then(t=>load(t,f.name))};
+$('#pasteBtn').onclick=()=>load($('#paste').value,'pasted');
+$('#sample').onclick=()=>load(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100"><rect x="5" y="5" width="110" height="90" fill="#bfe3ff"/><circle cx="90" cy="25" r="10" fill="#ffd23f"/><polygon points="10,90 45,35 80,90" fill="#4a7c59"/><path d="M10 70 Q 40 50 70 70 T 110 70" fill="none" stroke="#2b2d42" stroke-width="3"/><ellipse cx="30" cy="20" rx="14" ry="6" fill="none" stroke="#fff" stroke-width="2"/></svg>`,'sample');
+['scale','dec','origin','bg'].forEach(id=>$('#'+id).addEventListener('input',update));
+$('#copy').onclick=async()=>{try{await navigator.clipboard.writeText($('#out').value)}catch(e){$('#out').select();document.execCommand('copy')}
+  $('#copy').textContent='Copied!';setTimeout(()=>$('#copy').textContent='Copy',1200)};
+$('#dl').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#out').value],{type:'text/plain'}));a.download=fname+'.icn';a.click()};
+</script>
+</body>
+</html>

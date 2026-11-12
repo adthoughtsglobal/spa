@@ -1,6 +1,9 @@
 I make single page apps - using ai or not - which lets me do exactly some specific tasks. These are very handy in need. I thought you would find this helpful too. 
 
 Here's a list
+- **thingy that lets you build complex 3d shapes from code based on SCAD**
+  - https://adthoughtsglobal.github.io/spa/scad.html
+
 - **thingy that Keeps your face 50% of webcam feed, locally**
   - https://adthoughtsglobal.github.io/spa/webcam_keep_face_visible_local.html
 

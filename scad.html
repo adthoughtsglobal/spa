@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SCAD Studio</title>
+<style>
+:root{--bg:#f1f3f7;--pn:#fff;--tx:#1d2330;--mu:#6b7385;--bd:#d9dde6;--ac:#2f6fed;--ed:#fbfcfe;--er:#c62828;--bt:#eef1f6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161b;--pn:#1c1f26;--tx:#e6e9f0;--mu:#8b93a7;--bd:#2d323d;--ac:#6ea1ff;--ed:#161920;--er:#ff7b72;--bt:#262a33}}
+:root[data-theme="dark"]{--bg:#14161b;--pn:#1c1f26;--tx:#e6e9f0;--mu:#8b93a7;--bd:#2d323d;--ac:#6ea1ff;--ed:#161920;--er:#ff7b72;--bt:#262a33}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+#app{display:grid;grid-template-columns:minmax(300px,38%) 1fr;height:100%}
+#left{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--pn);border-right:1px solid var(--bd)}
+#pal{display:flex;flex-wrap:wrap;gap:4px;padding:6px;max-height:76px;overflow:auto;border-bottom:1px solid var(--bd)}
+.chip{border:1px solid var(--bd);background:var(--bt);color:var(--tx);border-radius:6px;padding:2px 8px;font-size:12px;cursor:grab}
+.chip:hover,button:hover{border-color:var(--ac)}
+#ed{flex:1;min-height:0;resize:none;border:0;outline:0;padding:10px;background:var(--ed);color:var(--tx);font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2;white-space:pre;overflow:auto}
+#con{height:84px;margin:0;padding:6px 10px;overflow:auto;border-top:1px solid var(--bd);font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;color:var(--mu);white-space:pre-wrap}
+#con.err{color:var(--er)}
+#right{position:relative;min-height:0;min-width:0}
+#cv{width:100%;height:100%;display:block;outline:0}
+#st{position:absolute;left:10px;bottom:10px;background:var(--pn);border:1px solid var(--bd);border-radius:8px;padding:3px 10px;color:var(--mu);font-size:12px}
+#ctl{position:absolute;top:10px;right:10px;width:228px;max-height:calc(100% - 20px);overflow:auto;background:var(--pn);border:1px solid var(--bd);border-radius:10px;padding:6px 10px}
+#ctl>summary{font-weight:600;cursor:pointer}
+fieldset{border:0;border-top:1px solid var(--bd);margin:8px 0 0;padding:6px 0 0}
+legend{color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:0 4px 0 0}
+label{display:block;margin:3px 0;font-size:12px}
+label span{float:right;color:var(--mu)}
+label.k{display:flex;gap:6px;align-items:center}
+input[type=range]{width:100%;margin:2px 0;accent-color:var(--ac)}
+select,button,input[type=color]{font:inherit;font-size:12px;color:var(--tx);background:var(--bt);border:1px solid var(--bd);border-radius:6px;padding:3px 8px}
+select{width:100%}
+.row{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+button{cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+@media (max-width:800px){#app{grid-template-columns:1fr;grid-template-rows:44% 56%}#left{border-right:0;border-bottom:1px solid var(--bd)}#ctl{width:190px}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@jscad/modeling@2.11.0/dist/jscad-modeling.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+<div id="app">
+<div id="left"><div id="pal"></div><textarea id="ed" spellcheck="false" autocomplete="off"></textarea><pre id="con"></pre></div>
+<div id="right"><canvas id="cv"></canvas><div id="st">Ready</div><details id="ctl"><summary>Controls</summary></details></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const J=jscadModeling,P=J.primitives,B=J.booleans,T=J.transforms,X=J.extrusions,H=J.hulls,G=J.geometries,E=J.expansions;
+const D=Math.PI/180;
+
+const lex=s=>{
+  s=s.replace(/\/\*[\s\S]*?\*\//g,' ').replace(/\/\/[^\n]*/g,' ').trimEnd();
+  const re=/\s*(?:(\d+\.?\d*(?:[eE][-+]?\d+)?|\.\d+)|("(?:[^"\\]|\\.)*")|([A-Za-z_$][\w$]*)|(==|!=|<=|>=|&&|\|\||[-+*\/%<>=!?:;,.(){}\[\]#]))/y;
+  const t=[];re.lastIndex=0;
+  while(re.lastIndex<s.length){
+    const m=re.exec(s);
+    if(!m)throw new Error('Unexpected character near "'+s.slice(re.lastIndex,re.lastIndex+12).trim()+'"');
+    if(m[1]!==undefined)t.push({t:'n',v:parseFloat(m[1])});
+    else if(m[2]!==undefined)t.push({t:'s',v:JSON.parse(m[2])});
+    else if(m[3]!==undefined)t.push({t:'i',v:m[3]});
+    else t.push({t:'p',v:m[4]});
+  }
+  return t;
+};
+
+const parse=src=>{
+  const tk=lex(src);let p=0;
+  const isP=v=>p<tk.length&&tk[p].t=='p'&&tk[p].v==v;
+  const isI=v=>p<tk.length&&tk[p].t=='i'&&tk[p].v==v;
+  const eat=v=>isP(v)?(p++,true):false;
+  const fail=w=>{throw new Error('Syntax error: expected '+w+' but found '+(p<tk.length?'"'+tk[p].v+'"':'end of file'))};
+  const need=v=>{if(!eat(v))fail('"'+v+'"')};
+  const ident=()=>{if(p<tk.length&&tk[p].t=='i')return tk[p++].v;fail('a name')};
+  const bin=(sub,ops)=>()=>{let l=sub();while(p<tk.length&&tk[p].t=='p'&&ops.includes(tk[p].v)){const o=tk[p++].v;l={k:'b',o,l,r:sub()}}return l};
+  const expr=()=>{const c=lor();if(eat('?')){const a=expr();need(':');return{k:'q',c,a,b:expr()}}return c};
+  const unary=()=>{if(isP('-')||isP('!')||isP('+')){const o=tk[p++].v;return{k:'u',o,e:unary()}}return post()};
+  const mul=bin(unary,['*','/','%']);
+  const add=bin(mul,['+','-']);
+  const cmp=bin(add,['<','>','<=','>=']);
+  const eq=bin(cmp,['==','!=']);
+  const land=bin(eq,['&&']);
+  const lor=bin(land,['||']);
+  const args=()=>{const r=[];while(!isP(')')){let n=null;if(tk[p]&&tk[p].t=='i'&&tk[p+1]&&tk[p+1].t=='p'&&tk[p+1].v=='='){n=tk[p].v;p+=2}r.push({n,e:expr()});if(!eat(','))break}need(')');return r};
+  const post=()=>{let n=prim();for(;;){
+    if(isP('(')){p++;n={k:'f',f:n,a:args()}}
+    else if(isP('[')){p++;const i=expr();need(']');n={k:'i',e:n,i}}
+    else if(isP('.')&&tk[p+1]&&tk[p+1].t=='i'){p++;n={k:'m',e:n,n:tk[p++].v}}
+    else return n}};
+  const lc=()=>{p++;need('(');const n=ident();need('=');const src=expr();need(')');let c=null;if(isI('if')){p++;need('(');c=expr();need(')')}const e=expr();need(']');return{k:'c',n,src,c,e}};
+  const prim=()=>{
+    if(p>=tk.length)fail('an expression');
+    const t=tk[p++];
+    if(t.t=='n'||t.t=='s')return{k:'v',v:t.v};
+    if(t.t=='i'){if(t.v=='true')return{k:'v',v:true};if(t.v=='false')return{k:'v',v:false};if(t.v=='undef')return{k:'v',v:undefined};return{k:'id',v:t.v}}
+    if(t.v=='('){const e=expr();need(')');return e}
+    if(t.v=='['){
+      if(eat(']'))return{k:'l',x:[]};
+      if(isI('for'))return lc();
+      const f=expr();
+      if(eat(':')){const s=expr();let e=s,st={k:'v',v:1};if(eat(':')){st=s;e=expr()}need(']');return{k:'r',a:f,s:st,e}}
+      const x=[f];while(eat(',')){if(isP(']'))break;x.push(expr())}need(']');return{k:'l',x}
+    }
+    p--;fail('an expression');
+  };
+  const params=()=>{need('(');const r=[];while(!isP(')')){const n=ident();let d=null;if(eat('='))d=expr();r.push({n,d});if(!eat(','))break}need(')');return r};
+  const stmt=()=>{
+    if(eat(';'))return null;
+    if(eat('{')){const b=[];while(p<tk.length&&!isP('}')){const s=stmt();if(s)b.push(s)}need('}');return{k:'blk',b}}
+    if(isP('*')){p++;stmt();return null}
+    while(isP('#')||isP('%')||isP('!'))p++;
+    const t=tk[p];
+    if(!t||t.t!='i')fail('a statement');
+    if(t.v=='module'){p++;const name=ident();const ps=params();return{k:'mod',name,ps,b:stmt()}}
+    if(t.v=='function'){p++;const name=ident();const ps=params();need('=');const e=expr();need(';');return{k:'fn',name,ps,e}}
+    if(t.v=='for'){p++;need('(');const a=[];do{const n=ident();need('=');a.push({n,e:expr()})}while(eat(','));need(')');return{k:'for',a,b:stmt()}}
+    if(t.v=='if'){p++;need('(');const c=expr();need(')');const a=stmt();let b=null;if(isI('else')){p++;b=stmt()}return{k:'if',c,a,b}}
+    if(t.v=='include'||t.v=='use'){while(p<tk.length&&!isP('>'))p++;p++;return null}
+    if(tk[p+1]&&tk[p+1].t=='p'&&tk[p+1].v=='='){p+=2;const e=expr();need(';');return{k:'a',n:t.v,e}}
+    p++;need('(');const a=args();const ch=isP(';')?(p++,null):stmt();return{k:'call',n:t.v,a,ch};
+  };
+  const out=[];while(p<tk.length){const s=stmt();if(s)out.push(s)}
+  return{k:'blk',b:out};
+};
+
+const cc=document.createElement('canvas').getContext('2d',{willReadFrequently:true});
+const pc=(v,a)=>{
+  if(Array.isArray(v))return[v[0],v[1],v[2],v[3]??a??1];
+  if(typeof v=='string'){cc.canvas.width=cc.canvas.height=1;cc.clearRect(0,0,1,1);cc.fillStyle='#000';cc.fillStyle=v;cc.fillRect(0,0,1,1);const d=cc.getImageData(0,0,1,1).data;return[d[0]/255,d[1]/255,d[2]/255,a??1]}
+  return null;
+};
+
+const bop=(o,a,b)=>{
+  if(o=='=='||o=='!=')return(JSON.stringify(a)==JSON.stringify(b))==(o=='==');
+  if(Array.isArray(a)&&Array.isArray(b))return o=='*'?a.reduce((s,x,i)=>s+x*b[i],0):a.map((x,i)=>bop(o,x,b[i]));
+  if(Array.isArray(a))return a.map(x=>bop(o,x,b));
+  if(Array.isArray(b))return b.map(x=>bop(o,a,x));
+  switch(o){case'+':return a+b;case'-':return a-b;case'*':return a*b;case'/':return a/b;case'%':return a%b;case'<':return a<b;case'>':return a>b;case'<=':return a<=b;case'>=':return a>=b}
+};
+
+const run=(ast,imports,log)=>{
+  const MODS={},FNS={};
+  const F={sin:x=>Math.sin(x*D),cos:x=>Math.cos(x*D),tan:x=>Math.tan(x*D),asin:x=>Math.asin(x)/D,acos:x=>Math.acos(x)/D,atan:x=>Math.atan(x)/D,atan2:(y,x)=>Math.atan2(y,x)/D,sqrt:Math.sqrt,abs:Math.abs,floor:Math.floor,ceil:Math.ceil,round:Math.round,sign:Math.sign,exp:Math.exp,ln:Math.log,log:Math.log10,pow:Math.pow,min:(...a)=>Math.min(...a.flat()),max:(...a)=>Math.max(...a.flat()),len:a=>a==null?undefined:a.length,norm:v=>Math.hypot(...v),concat:(...a)=>[].concat(...a),str:(...a)=>a.join(''),cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]};
+  const iter=v=>{
+    if(Array.isArray(v))return v;
+    if(v&&v.rng){const[a,s,b]=v.rng;const r=[];if(s>0)for(let x=a;x<=b+1e-9&&r.length<100000;x+=s)r.push(x);else if(s<0)for(let x=a;x>=b-1e-9&&r.length<100000;x+=s)r.push(x);return r}
+    return v===undefined?[]:[v];
+  };
+  const bind=(ps,as,env)=>{
+    const ne=Object.create(env),nm={},pos=[];
+    as.forEach(a=>{if(a.n)nm[a.n]=ev(a.e,env);else pos.push(a)});
+    let i=0;
+    ps.forEach(q=>{if(q.n in nm)ne[q.n]=nm[q.n];else if(i<pos.length)ne[q.n]=ev(pos[i++].e,env);else ne[q.n]=q.d?ev(q.d,ne):undefined});
+    Object.keys(nm).forEach(k=>{if(!ps.some(q=>q.n==k))ne[k]=nm[k]});
+    return ne;
+  };
+  const ev=(n,e)=>{switch(n.k){
+    case'v':return n.v;
+    case'id':return n.v=='PI'?Math.PI:e[n.v];
+    case'l':return n.x.map(x=>ev(x,e));
+    case'r':return{rng:[ev(n.a,e),ev(n.s,e),ev(n.e,e)]};
+    case'c':return iter(ev(n.src,e)).flatMap(v=>{const e2=Object.create(e);e2[n.n]=v;return n.c&&!ev(n.c,e2)?[]:[ev(n.e,e2)]});
+    case'q':return ev(n.c,e)?ev(n.a,e):ev(n.b,e);
+    case'u':{const v=ev(n.e,e);return n.o=='-'?bop('*',-1,v):n.o=='!'?!v:v}
+    case'b':{if(n.o=='&&')return ev(n.l,e)&&ev(n.r,e);if(n.o=='||')return ev(n.l,e)||ev(n.r,e);return bop(n.o,ev(n.l,e),ev(n.r,e))}
+    case'i':{const a=ev(n.e,e);return a==null?undefined:a[ev(n.i,e)]}
+    case'm':{const a=ev(n.e,e);return a==null?undefined:a[{x:0,y:1,z:2}[n.n]]}
+    case'f':{
+      const nm=n.f.k=='id'?n.f.v:null;
+      if(nm&&FNS[nm]){const d=FNS[nm];return ev(d.e,bind(d.ps,n.a,e))}
+      if(nm&&F[nm])return F[nm](...n.a.map(a=>ev(a.e,e)));
+      throw new Error('Unknown function '+nm);
+    }
+  }};
+  const A=(a,names,e)=>{const o={};let i=0;a.forEach(x=>{if(x.n)o[x.n]=ev(x.e,e);else o[names[i++]]=ev(x.e,e)});return o};
+  const seg=(o,e,r)=>{const f=o.$fn!==undefined?o.$fn:e.$fn;if(f>=3)return Math.round(f);const fa=o.$fa??e.$fa??12,fs=o.$fs??e.$fs??2;return Math.max(Math.ceil(Math.max(Math.min(360/fa,r*2*Math.PI/fs),5)),5)};
+  const v3=v=>Array.isArray(v)?[v[0]||0,v[1]||0,v[2]||0]:[0,0,0];
+  const sv=v=>Array.isArray(v)?[v[0]??1,v[1]??1,v[2]??1]:[v??1,v??1,v??1];
+  const U=items=>{const gs=items.map(i=>i.g);return gs.length>1?B.union(gs):gs[0]};
+  const kids=(ch,e)=>{
+    const r=[];
+    const walk=(l,env)=>l.forEach(s=>{
+      if(s.k=='blk'){const ne=Object.create(env);s.b.forEach(x=>{if(x.k=='mod')MODS[x.name]=x;else if(x.k=='fn')FNS[x.name]=x});walk(s.b,ne)}
+      else if(s.k=='a')env[s.n]=ev(s.e,env);
+      else{const g=ex(s,env);if(g.length)r.push(g)}
+    });
+    if(ch)walk([ch],e);
+    return r;
+  };
+  const mp=(ch,e,fn)=>kids(ch,e).flat().map(i=>({g:fn(i.g),c:i.c}));
+  const it=g=>[{g,c:null}];
+  const BI={
+    cube:(a,ch,e)=>{const o=A(a,['size','center'],e);let s=o.size??1;if(!Array.isArray(s))s=[s,s,s];const[x,y,z]=s;return it(P.cuboid({size:[x,y,z],center:o.center?[0,0,0]:[x/2,y/2,z/2]}))},
+    sphere:(a,ch,e)=>{const o=A(a,['r'],e);const r=o.r??(o.d!==undefined?o.d/2:1);return it(P.sphere({radius:r,segments:seg(o,e,r)}))},
+    cylinder:(a,ch,e)=>{
+      const o=A(a,['h','r1','r2','center'],e);const h=o.h??1;const r=o.r??(o.d!==undefined?o.d/2:1);
+      const r1=Math.max(o.r1??(o.d1!==undefined?o.d1/2:r),1e-4),r2=Math.max(o.r2??(o.d2!==undefined?o.d2/2:r),1e-4);
+      return it(P.cylinderElliptic({height:h,startRadius:[r1,r1],endRadius:[r2,r2],center:[0,0,o.center?0:h/2],segments:seg(o,e,Math.max(r1,r2))}));
+    },
+    polyhedron:(a,ch,e)=>{const o=A(a,['points','faces'],e);return it(P.polyhedron({points:o.points,faces:o.faces,orientation:'inward'}))},
+    circle:(a,ch,e)=>{const o=A(a,['r'],e);const r=o.r??(o.d!==undefined?o.d/2:1);return it(P.circle({radius:r,segments:seg(o,e,r)}))},
+    square:(a,ch,e)=>{const o=A(a,['size','center'],e);let s=o.size??1;if(!Array.isArray(s))s=[s,s];return it(P.rectangle({size:[s[0],s[1]],center:o.center?[0,0]:[s[0]/2,s[1]/2]}))},
+    polygon:(a,ch,e)=>{const o=A(a,['points'],e);return it(P.polygon({points:o.points}))},
+    translate:(a,ch,e)=>{const o=A(a,['v'],e);return mp(ch,e,g=>T.translate(v3(o.v),g))},
+    rotate:(a,ch,e)=>{const o=A(a,['a'],e);const r=Array.isArray(o.a)?o.a:[0,0,o.a||0];return mp(ch,e,g=>T.rotate([(r[0]||0)*D,(r[1]||0)*D,(r[2]||0)*D],g))},
+    scale:(a,ch,e)=>{const o=A(a,['v'],e);return mp(ch,e,g=>T.scale(sv(o.v),g))},
+    mirror:(a,ch,e)=>{const o=A(a,['v'],e);return mp(ch,e,g=>T.mirror({normal:v3(o.v)},g))},
+    multmatrix:(a,ch,e)=>{const o=A(a,['m'],e);const m=[];for(let c=0;c<4;c++)for(let r=0;r<4;r++)m.push(o.m[r][c]);return mp(ch,e,g=>T.transform(m,g))},
+    color:(a,ch,e)=>{const o=A(a,['c','alpha'],e);const col=pc(o.c,o.alpha);return kids(ch,e).flat().map(i=>({g:i.g,c:i.c||col}))},
+    union:(a,ch,e)=>kids(ch,e).flat(),
+    difference:(a,ch,e)=>{
+      const ks=kids(ch,e);if(!ks.length)return[];
+      const cut=ks.slice(1).flat().map(i=>i.g);if(!cut.length)return ks[0];
+      const cg=cut.length>1?B.union(cut):cut[0];
+      return ks[0].map(i=>({g:B.subtract(i.g,cg),c:i.c}));
+    },
+    intersection:(a,ch,e)=>{
+      const ks=kids(ch,e);if(!ks.length)return[];
+      const gs=ks.slice(1).map(U);
+      return ks[0].map(i=>({g:gs.reduce((s,x)=>B.intersect(s,x),i.g),c:i.c}));
+    },
+    hull:(a,ch,e)=>{const l=kids(ch,e).flat();return l.length?[{g:H.hull(l.map(i=>i.g)),c:l[0].c}]:[]},
+    linear_extrude:(a,ch,e)=>{
+      const o=A(a,['height','center','convexity','twist','slices'],e);const h=o.height??1,tw=o.twist||0;
+      return mp(ch,e,g=>{const x=X.extrudeLinear({height:h,twistAngle:-tw*D,twistSteps:o.slices||Math.max(1,Math.ceil(Math.abs(tw)/10))},g);return o.center?T.translate([0,0,-h/2],x):x});
+    },
+    rotate_extrude:(a,ch,e)=>{const o=A(a,['angle'],e);return mp(ch,e,g=>X.extrudeRotate({segments:Math.max(seg(o,e,20),24),angle:(o.angle??360)*D},g))},
+    offset:(a,ch,e)=>{const o=A(a,['r','delta'],e);return mp(ch,e,g=>E.offset({delta:o.delta??o.r??0,corners:o.r!==undefined?'round':'edge',segments:16},g))},
+    import:(a,ch,e)=>{const o=A(a,['file'],e);const nm=String(o.file).split('/').pop();if(!imports[nm])throw new Error('File not loaded: '+nm+' (drop it onto the viewport first)');return it(imports[nm])},
+    children:(a,ch,e)=>{const ks=e.$ch||[];return a.length?(ks[ev(a[0].e,e)]||[]):ks.flat()},
+    echo:(a,ch,e)=>{log(a.map(x=>(x.n?x.n+' = ':'')+JSON.stringify(ev(x.e,e))).join(', '));return[]}
+  };
+  BI.group=BI.render=BI.union;
+  const ex=(n,e)=>{
+    if(!n)return[];
+    switch(n.k){
+      case'blk':{const ne=Object.create(e);n.b.forEach(s=>{if(s.k=='mod')MODS[s.name]=s;else if(s.k=='fn')FNS[s.name]=s});return n.b.flatMap(s=>ex(s,ne))}
+      case'a':e[n.n]=ev(n.e,e);return[];
+      case'mod':MODS[n.name]=n;return[];
+      case'fn':FNS[n.name]=n;return[];
+      case'if':return ev(n.c,e)?ex(n.a,e):ex(n.b,e);
+      case'for':{const rec=(i,ee)=>i==n.a.length?ex(n.b,ee):iter(ev(n.a[i].e,ee)).flatMap(v=>{const e2=Object.create(ee);e2[n.a[i].n]=v;return rec(i+1,e2)});return rec(0,e)}
+      case'call':{
+        const d=MODS[n.n];
+        if(d){const ne=bind(d.ps,n.a,e);const ks=kids(n.ch,e);ne.$ch=ks;ne.$children=ks.length;return ex(d.b,ne)}
+        const f=BI[n.n];if(!f)throw new Error('Unknown module '+n.n);
+        return f(n.a,n.ch,e);
+      }
+    }
+    return[];
+  };
+  return ex(ast,Object.create(null));
+};
+
+const SN=[
+['Cube','cube([10,10,10]);\n'],
+['Sphere','sphere(r=6,$fn=32);\n'],
+['Cylinder','cylinder(h=10,r=4,$fn=32);\n'],
+['Cone','cylinder(h=10,r1=5,r2=0,$fn=32);\n'],
+['Box 2D','linear_extrude(height=5) square([10,6]);\n'],
+['Disc','linear_extrude(height=5) circle(r=5,$fn=48);\n'],
+['Union','union() {\n  cube(10);\n  translate([5,5,5]) sphere(6,$fn=32);\n}\n'],
+['Difference','difference() {\n  cube(12,center=true);\n  sphere(8,$fn=32);\n}\n'],
+['Intersection','intersection() {\n  cube(12,center=true);\n  sphere(8,$fn=32);\n}\n'],
+['Hull','hull() {\n  cube(5);\n  translate([10,10,10]) sphere(3,$fn=24);\n}\n'],
+['Color','color("tomato") cube(10);\n'],
+['Translate','translate([0,0,0]) '],
+['Rotate','rotate([0,0,45]) '],
+['Scale','scale([1,1,1]) '],
+['Mirror','mirror([1,0,0]) '],
+['For loop','for (i=[0:4]) translate([i*12,0,0]) cube(10);\n'],
+['Torus','rotate_extrude($fn=48) translate([8,0]) circle(r=2,$fn=24);\n'],
+['Wall','module wall(l=10,h=3,t=0.3) { cube([l,t,h]); }\nwall();\n'],
+['Stairs','module stairs(n=8,w=4,r=0.8,t=1.2) { for (i=[0:n-1]) translate([0,i*t,i*r]) cube([w,t,r]); }\nstairs();\n'],
+['Gable roof','module gable(w=10,d=8,h=3) { rotate([90,0,0]) linear_extrude(d) polygon([[0,0],[w,0],[w/2,h]]); }\ngable();\n']
+];
+
+const DEF=`$fn=32;
+floors=4;
+fh=3.6;
+w=30;
+d=16;
+
+module windows(n,sp,z) {
+  for (i=[0:n-1]) translate([3+i*sp,-1,z]) cube([2.4,3,2]);
+}
+
+module level(k) {
+  translate([0,0,k*fh]) difference() {
+    color("#d9cdb8") cube([w,d,fh]);
+    translate([0.5,0.5,0.3]) cube([w-1,d-1,fh]);
+    windows(5,5.2,1);
+    translate([0,d-1,0]) windows(5,5.2,1);
+  }
+}
+
+for (k=[0:floors-1]) level(k);
+
+for (k=[0:floors-1]) translate([0,0,k*fh])
+  color("lightskyblue",0.55)
+    for (i=[0:4]) translate([3+i*5.2,0.3,1]) cube([2.4,0.15,2]);
+
+color("#8a3b2e") translate([-1,-1,floors*fh]) cube([w+2,d+2,0.6]);
+color("#5a3a22") translate([w/2-1.2,-0.3,0]) cube([2.4,0.5,2.6]);
+
+color("white") for (x=[w/2-3,w/2+3]) translate([x,-2,0]) cylinder(h=3.4,r=0.4);
+color("#8a3b2e") translate([w/2-4,-3,3.4]) cube([8,3.5,0.3]);
+
+color("#9aa3ad") translate([w+7,d/2,0])
+  cylinder(h=floors*fh+6,r=5);
+color("#c9a227") translate([w+7,d/2,floors*fh+6]) sphere(r=5);
+
+color("#6e7a6b") translate([-8,-9,-0.5]) cube([w+24,d+18,0.5]);
+`;
+
+const ed=$('ed'),con=$('con'),st=$('st'),cv=$('cv'),right=$('right'),ctl0=$('ctl');
+ed.value=DEF;
+
+const R=(id,l,mn,mx,s,v)=>`<label>${l}<span id="${id}v">${v}</span><input id="${id}" type="range" min="${mn}" max="${mx}" step="${s}" value="${v}"></label>`;
+const K=(id,l,c)=>`<label class="k"><input id="${id}" type="checkbox"${c?' checked':''}>${l}</label>`;
+const dark=matchMedia('(prefers-color-scheme: dark)').matches;
+ctl0.insertAdjacentHTML('beforeend',
+`<fieldset><legend>Camera</legend><select id="proj"><option value="p">Perspective</option><option value="o">Orthographic</option></select>
+${R('fov','Field of view',15,110,1,45)}${K('dof','Depth of field',false)}${R('focus','Focus distance',1,400,1,60)}${R('ap','Aperture',0,100,1,8)}${R('blur','Max blur',1,40,1,10)}
+<div class="row"><button data-v="1,-1.1,.8">Iso</button><button data-v="0,-.001,1">Top</button><button data-v="0,-1,0">Front</button><button data-v="1,0,0">Right</button><button data-v="-1,0,0">Left</button><button data-v="0,1,0">Back</button><button id="fit">Fit</button><button id="ft">Focus on target</button></div></fieldset>
+<fieldset><legend>Light</legend>${R('li','Intensity',0,3,.05,1)}${R('az','Azimuth',0,360,1,40)}${R('el','Elevation',5,90,1,55)}${R('am','Ambient',0,2,.05,.6)}${K('sh','Shadows',false)}</fieldset>
+<fieldset><legend>View</legend>${K('wire','Edges',false)}${K('grid','Grid',true)}${K('axes','Axes',false)}<label>Background <input id="bg" type="color" value="${dark?'#1b1e26':'#e9edf3'}"></label></fieldset>
+<fieldset><legend>Export</legend><div class="row"><button id="exp">Export ZIP (STL, OBJ, SCAD)</button></div></fieldset>`);
+ctl0.open=innerWidth>800;
+const val=id=>+$(id).value,chk=id=>$(id).checked;
+
+$('pal').innerHTML=SN.map((s,i)=>`<span class="chip" draggable="true" data-i="${i}">${s[0]}</span>`).join('');
+
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+scene.background=new THREE.Color($('bg').value);
+const persp=new THREE.PerspectiveCamera(45,1,.1,5000),ortho=new THREE.OrthographicCamera(-1,1,1,-1,.1,5000);
+persp.up.set(0,0,1);ortho.up.set(0,0,1);persp.position.set(40,-44,32);ortho.position.copy(persp.position);
+let cam=persp,ctl,orthoH=40,dirty=true,rad=20,lastBg='',lastSh=false;
+const tgt=new THREE.Vector3(),ctr=new THREE.Vector3();
+const hemi=new THREE.HemisphereLight(0xffffff,0x555566,.6),sun=new THREE.DirectionalLight(0xffffff,1);
+sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0004;sun.shadow.normalBias=.03;
+scene.add(hemi,sun,sun.target);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.ShadowMaterial({opacity:.28}));
+ground.receiveShadow=true;ground.visible=false;scene.add(ground);
+const axes=new THREE.AxesHelper(20);axes.visible=false;scene.add(axes);
+let grid,grp=new THREE.Group();scene.add(grp);
+const mkGrid=()=>{
+  if(grid){scene.remove(grid);grid.geometry.dispose()}
+  const l=new THREE.Color($('bg').value).getHSL({}).l>.5;
+  grid=new THREE.GridHelper(400,40,l?0x7a8190:0x7d8597,l?0xbcc2cf:0x39404d);
+  grid.rotation.x=Math.PI/2;grid.visible=chk('grid');scene.add(grid);lastBg=$('bg').value;
+};
+mkGrid();
+const composer=new THREE.EffectComposer(renderer);
+const bokeh=new THREE.BokehPass(scene,persp,{focus:60,aperture:8e-4,maxblur:.01,width:1,height:1});
+bokeh.renderToScreen=true;composer.addPass(bokeh);
+
+const mkCtl=()=>{
+  if(ctl){tgt.copy(ctl.target);ctl.dispose()}
+  ctl=new THREE.OrbitControls(cam,cv);ctl.target.copy(tgt);ctl.enableDamping=true;ctl.dampingFactor=.12;ctl.update();
+};
+const resize=()=>{
+  const w=Math.max(right.clientWidth,1),h=Math.max(right.clientHeight,1),a=w/h;
+  renderer.setSize(w,h,false);composer.setSize(w,h);
+  persp.aspect=a;persp.updateProjectionMatrix();
+  ortho.left=-orthoH*a;ortho.right=orthoH*a;ortho.top=orthoH;ortho.bottom=-orthoH;ortho.updateProjectionMatrix();
+  bokeh.uniforms.aspect.value=a;dirty=true;
+};
+new ResizeObserver(resize).observe(right);
+
+const lightUpd=()=>{
+  const az=val('az')*D,el=val('el')*D,R0=rad*3;
+  sun.position.set(ctr.x+R0*Math.cos(el)*Math.cos(az),ctr.y+R0*Math.cos(el)*Math.sin(az),ctr.z+R0*Math.sin(el));
+  sun.target.position.copy(ctr);sun.target.updateMatrixWorld();
+  const s=sun.shadow.camera;s.left=s.bottom=-rad*1.5;s.right=s.top=rad*1.5;s.near=.1;s.far=rad*7;s.updateProjectionMatrix();
+};
+const setWire=()=>{
+  const on=chk('wire');
+  grp.children.forEach(m=>{
+    if(!m.isMesh)return;
+    if(on&&!m.userData.e){m.userData.e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry,25),new THREE.LineBasicMaterial({color:0x111111}));m.add(m.userData.e)}
+    if(m.userData.e)m.userData.e.visible=on;
+  });
+};
+const apply=()=>{
+  persp.fov=val('fov');persp.updateProjectionMatrix();
+  bokeh.uniforms.focus.value=val('focus');bokeh.uniforms.aperture.value=val('ap')*1e-4;bokeh.uniforms.maxblur.value=val('blur')/1000;
+  hemi.intensity=val('am');sun.intensity=val('li');lightUpd();
+  axes.visible=chk('axes');
+  const sh=chk('sh');
+  if(sh!=lastSh){lastSh=sh;renderer.shadowMap.enabled=sh;grp.children.forEach(m=>{m.material.needsUpdate=true})}
+  sun.castShadow=sh;ground.visible=sh;
+  scene.background.set($('bg').value);
+  if($('bg').value!=lastBg)mkGrid();
+  grid.visible=chk('grid');
+  setWire();
+  ctl0.querySelectorAll('input[type=range]').forEach(r=>{$(r.id+'v').textContent=r.value});
+  dirty=true;
+};
+ctl0.addEventListener('input',apply);
+
+$('proj').onchange=()=>{
+  const p=$('proj').value=='p',old=cam;
+  if(!p)orthoH=Math.max(old.position.distanceTo(ctl.target)*Math.tan(persp.fov*D/2),.1);
+  cam=p?persp:ortho;ortho.zoom=1;ortho.updateProjectionMatrix();cam.position.copy(old.position);
+  mkCtl();resize();dirty=true;
+};
+
+const fit=dir=>{
+  const d=dir?dir.clone().normalize():cam.position.clone().sub(ctl.target).normalize();
+  const dist=rad/Math.sin(persp.fov*D/2)*1.05;
+  ctl.target.copy(ctr);cam.position.copy(ctr).addScaledVector(d,dist);
+  orthoH=rad*1.1;ortho.zoom=1;resize();cam.lookAt(ctr);ctl.update();
+  $('focus').max=Math.ceil(dist*3);$('focus').value=Math.round(dist);apply();
+};
+const focusT=()=>{$('focus').max=Math.max(+$('focus').max,Math.ceil(cam.position.distanceTo(ctl.target)*2));$('focus').value=Math.round(cam.position.distanceTo(ctl.target));apply()};
+ctl0.querySelectorAll('button[data-v]').forEach(b=>b.onclick=()=>fit(new THREE.Vector3(...b.dataset.v.split(',').map(Number))));
+$('fit').onclick=()=>fit();
+$('ft').onclick=focusT;
+mkCtl();resize();apply();
+
+let allPos=[],first=true;
+const toTris=g=>{
+  if(G.geom2.isA(g))g=X.extrudeLinear({height:.05},g);
+  const out=[];
+  G.geom3.toPolygons(g).forEach(pl=>{const v=pl.vertices;for(let i=1;i<v.length-1;i++)out.push(v[0],v[i],v[i+1])});
+  return out;
+};
+const build=items=>{
+  grp.children.forEach(m=>{m.geometry.dispose();m.material.dispose()});
+  scene.remove(grp);grp=new THREE.Group();allPos=[];let n=0;
+  items.forEach(i=>{
+    const t=toTris(i.g);if(!t.length)return;
+    const pos=new Float32Array(t.length*3);
+    t.forEach((v,k)=>{pos[k*3]=v[0];pos[k*3+1]=v[1];pos[k*3+2]=v[2]});
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.computeVertexNormals();
+    const c=i.c||[.976,.843,.173,1];
+    const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:new THREE.Color(c[0],c[1],c[2]),roughness:.55,metalness:.05,flatShading:true,transparent:c[3]<1,opacity:c[3],side:THREE.DoubleSide}));
+    m.castShadow=m.receiveShadow=true;grp.add(m);allPos.push(pos);n+=t.length/3;
+  });
+  scene.add(grp);
+  const b=new THREE.Box3().setFromObject(grp);
+  if(!b.isEmpty()){
+    b.getCenter(ctr);rad=Math.max(b.getSize(new THREE.Vector3()).length()/2,1);
+    ground.scale.setScalar(rad*8);ground.position.set(ctr.x,ctr.y,b.min.z-.01);
+  }
+  setWire();lightUpd();dirty=true;
+  return n;
+};
+
+const imports={};
+let tm=0;
+const sched=()=>{clearTimeout(tm);st.textContent='Typing…';tm=setTimeout(render,350)};
+const render=()=>{
+  st.textContent='Rendering…';
+  setTimeout(()=>{
+    const t0=performance.now();con.textContent='';con.classList.remove('err');
+    try{
+      const items=run(parse(ed.value),imports,m=>{con.textContent+=m+'\n'});
+      const n=build(items);
+      if(first&&n){first=false;fit(new THREE.Vector3(1,-1.1,.8))}
+      st.textContent=`Rendered in ${Math.round(performance.now()-t0)} ms · ${n} triangles`;
+    }catch(err){
+      con.classList.add('err');con.textContent+=err.message+'\n';st.textContent='Error';
+    }
+  },10);
+};
+ed.addEventListener('input',sched);
+ed.addEventListener('keydown',e=>{if(e.key=='Tab'){e.preventDefault();ins('  ')}});
+const ins=t=>{ed.setRangeText(t,ed.selectionStart,ed.selectionEnd,'end');ed.focus();sched()};
+$('pal').addEventListener('click',e=>{const c=e.target.closest('.chip');if(c)ins(SN[c.dataset.i][1])});
+$('pal').addEventListener('dragstart',e=>{const c=e.target.closest('.chip');if(c)e.dataTransfer.setData('text/plain',SN[c.dataset.i][1])});
+
+const stlLoader=new THREE.STLLoader();
+const loadFile=async f=>{
+  const nm=f.name,low=nm.toLowerCase();
+  if(low.endsWith('.stl')){
+    const pa=stlLoader.parse(await f.arrayBuffer()).attributes.position.array,tris=[];
+    for(let i=0;i<pa.length;i+=9)tris.push([[pa[i],pa[i+1],pa[i+2]],[pa[i+3],pa[i+4],pa[i+5]],[pa[i+6],pa[i+7],pa[i+8]]]);
+    imports[nm]=G.geom3.fromPoints(tris);ins(`import("${nm}");\n`);
+  }else if(low.endsWith('.scad')||low.endsWith('.txt')){ed.value=await f.text();sched()}
+};
+addEventListener('dragover',e=>e.preventDefault());
+right.addEventListener('drop',e=>{
+  e.preventDefault();
+  if(e.dataTransfer.files.length)[...e.dataTransfer.files].forEach(loadFile);
+  else{const t=e.dataTransfer.getData('text/plain');if(t)ins(t)}
+});
+ed.addEventListener('drop',e=>{if(e.dataTransfer.files.length){e.preventDefault();[...e.dataTransfer.files].forEach(loadFile)}});
+
+const stl=()=>{
+  const n=allPos.reduce((s,p)=>s+p.length/9,0),dv=new DataView(new ArrayBuffer(84+n*50));
+  dv.setUint32(80,n,true);let o=84;
+  allPos.forEach(p=>{for(let i=0;i<p.length;i+=9){
+    const ax=p[i+3]-p[i],ay=p[i+4]-p[i+1],az=p[i+5]-p[i+2],bx=p[i+6]-p[i],by=p[i+7]-p[i+1],bz=p[i+8]-p[i+2];
+    const nx=ay*bz-az*by,ny=az*bx-ax*bz,nz=ax*by-ay*bx,l=Math.hypot(nx,ny,nz)||1;
+    [nx/l,ny/l,nz/l].forEach((v,k)=>dv.setFloat32(o+k*4,v,true));
+    for(let k=0;k<9;k++)dv.setFloat32(o+12+k*4,p[i+k],true);
+    o+=50;
+  }});
+  return dv.buffer;
+};
+const obj=()=>{
+  let s='',b=1;
+  allPos.forEach(p=>{for(let i=0;i<p.length;i+=9){for(let k=0;k<9;k+=3)s+=`v ${p[i+k]} ${p[i+k+1]} ${p[i+k+2]}\n`;s+=`f ${b} ${b+1} ${b+2}\n`;b+=3}});
+  return s;
+};
+let dl=null;
+(async()=>{dl=window.claude?await claude.use('downloads'):null;if(!dl){$('exp').disabled=true;$('exp').title='Downloads are not available in this view'}})();
+$('exp').onclick=async()=>{
+  if(!dl||!allPos.length)return;
+  const z=new JSZip();z.file('model.stl',stl());z.file('model.obj',obj());z.file('model.scad',ed.value);
+  try{await dl.save({filename:'model.zip',data:await z.generateAsync({type:'blob'})});st.textContent='Export ready'}
+  catch(e){st.textContent=e&&e.code=='declined'?'Export cancelled':'Export failed'}
+};
+
+const loop=()=>{
+  requestAnimationFrame(loop);
+  if(ctl.update())dirty=true;
+  if(!dirty)return;
+  dirty=false;
+  if(chk('dof')&&cam===persp){bokeh.camera=cam;composer.render()}else renderer.render(scene,cam);
+};
+loop();
+render();
+</script>
+</body>
+</html>
